@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens.
+ * Tailwind v4 heeft geen tailwind.config.js meer: de config staat hier in @theme.
+ * Elke variabele in @theme wordt (1) een CSS-variabele op :root en (2) een
+ * Tailwind-utility. --color-chalk geeft dus `text-chalk`, `border-chalk/15`, ...
+ *
+ * Rolverdeling:
+ *  - ink   = achtergrond
+ *  - chalk = gewone tekst en 1px-lijnen (gebroken wit, zoals magnesium in de gym)
+ *  - lime  = enkel ACCENT: primaire knoppen, actieve tab, markeringen, focus, grafieklijnen
+ * Varianten maak je met opacity (`text-chalk/60`), nooit met een extra kleur.
+ */
+@theme {
+  /* Wis het standaardpalet: alleen onze drie kleuren bestaan nog. Een class als
+     `bg-red-500` doet dan gewoon niets, zo kan er geen andere kleur insluipen. */
+  --color-*: initial;
+  --color-ink: #0f0f0f;
+  --color-chalk: #ecece4;
+  --color-lime: #d7ff3a;
+
+  /* Geen schaduwen in dit design. */
+  --shadow-*: initial;
+  --inset-shadow-*: initial;
+  --drop-shadow-*: initial;
+}
+
+/* `inline` omdat --font-space-grotesk pas door next/font op <html> gezet wordt. */
+@theme inline {
+  --font-sans: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+    background-color: var(--color-ink);
+    color: var(--color-chalk);
+  }
+
+  body {
+    background-color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Zichtbare focus voor toetsenbordgebruikers (WCAG 2.4.7). Met offset blijft
+     de ring ook zichtbaar rond een lime knop. */
+  :focus-visible {
+    outline: 2px solid var(--color-lime);
+    outline-offset: 3px;
+  }
+
+  ::selection {
+    background-color: var(--color-lime);
+    color: var(--color-ink);
+  }
+
+  input,
+  select,
+  textarea {
+    background-color: transparent;
+    color: inherit;
+  }
+
+  option {
+    background-color: var(--color-ink);
+    color: var(--color-chalk);
+  }
+
+  ::placeholder {
+    color: color-mix(in srgb, var(--color-chalk) 45%, transparent);
+  }
+
+  /* Pijltjes van number-inputs nemen veel plaats in op mobiel. */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+}
+
+@layer components {
+  /* Eén stijl voor alle formuliervelden, zodat elke pagina er hetzelfde uitziet. */
+  .field {
+    @apply block min-h-12 w-full border border-chalk/25 px-3 py-2 text-base outline-none transition-colors;
+    /* Het veld waarin je typt krijgt een lime rand: het enige accent in een formulier. */
+    @apply hover:border-chalk/50 focus-visible:border-lime;
+  }
+  .label {
+    @apply mb-1 block text-sm font-medium text-chalk/70;
+  }
+}

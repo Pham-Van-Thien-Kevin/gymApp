@@ -1,0 +1,115 @@
+// Unit tests voor het powerlifting-rekenwerk in src/lib/rpe.ts.
+import { describe, expect, it } from "vitest";
+import {
+  estimateOneRepMax,
+  estimateRpe,
+  percentageOf1RM,
+  platesPerSide,
+  roundToIncrement,
+  suggestFromTarget,
+  suggestLoad,
+  targetRpeFrom,
+} from "@/lib/rpe";
+import { buildProgressSeries } from "@/lib/stats";
+
+describe("RPE-tabel", () => {
+  it("geeft het percentage uit de sheet", () => {
+    expect(percentageOf1RM(1, 10)).toBe(1);
+    expect(percentageOf1RM(5, 8)).toBe(0.81);
+    expect(percentageOf1RM(12, 5)).toBe(0.53);
+  });
+
+  it("interpoleert tussen twee RPE-rijen", () => {
+    // 5 reps: RPE 8 = 81%, RPE 8,5 = 82% → RPE 8,25 = 81,5%
+    expect(percentageOf1RM(5, 8.25)).toBeCloseTo(0.815, 5);
+  });
+
+  it("geeft null buiten de tabel", () => {
+    expect(percentageOf1RM(13, 8)).toBeNull();
+    expect(percentageOf1RM(5, 4.5)).toBeNull();
+    expect(percentageOf1RM(2.5, 8)).toBeNull();
+  });
+});
+
+describe("geschat 1RM", () => {
+  it("gebruikt de RPE-tabel als er een RPE is", () => {
+    expect(estimateOneRepMax(100, 5, 8)).toBeCloseTo(123.46, 2); // 100 / 0,81
+  });
+
+  it("valt terug op Epley zonder RPE of buiten de tabel", () => {
+    expect(estimateOneRepMax(100, 5, null)).toBeCloseTo(116.67, 2);
+    expect(estimateOneRepMax(100, 15, 8)).toBe(150);
+    expect(estimateOneRepMax(100, 1, null)).toBe(100);
+  });
+
+  it("wordt gebruikt in de progressiegrafiek", () => {
+    const [point] = buildProgressSeries([
+      { exercise_id: "x", workout_id: "w", date: "2026-10-20", set_number: 1, reps: 5, weight: 100, rpe: 8, reps_estimated: false },
+    ]);
+    expect(point.e1rm).toBe(123.5);
+  });
+});
+
+describe("voorgesteld gewicht", () => {
+  it("komt overeen met de rekenmachine in de sheet", () => {
+    expect(suggestLoad(105, 4, 7)).toBe(85); // bench: 105 × 81% = 85,05 → 85
+    expect(suggestLoad(160, 6, 6)).toBe(117.5); // deadlift: 160 × 74% = 118,4 → 117,5
+  });
+
+  it("rondt af op 2,5 kg en geeft null buiten de tabel", () => {
+    expect(roundToIncrement(101.2)).toBe(100);
+    expect(roundToIncrement(101.3)).toBe(102.5);
+    expect(suggestLoad(100, 15, 8)).toBeNull();
+  });
+
+  it("leest de doel-RPE uit de tekst (ondergrens bij een bereik)", () => {
+    expect(targetRpeFrom("RPE 8-8,5")).toBe(8);
+    expect(targetRpeFrom("RPE 7,5")).toBe(7.5);
+    expect(targetRpeFrom("7-8")).toBe(7); // zo staat het in een schema
+    expect(targetRpeFrom("Load indien te licht")).toBeNull();
+    expect(targetRpeFrom(null)).toBeNull();
+  });
+
+  it("stelt een gewicht voor vanuit een schemadoel", () => {
+    // Squat met geschat 1RM 145,6 kg, doel 4 × 5 @ RPE 7 → 79% → 115 kg
+    expect(suggestFromTarget(145.6, "5", "7")).toEqual({ weight: 115, reps: 5, rpe: 7 });
+    expect(suggestFromTarget(145.6, "8-10", "7-8")).toEqual({ weight: 100, reps: 8, rpe: 7 });
+    expect(suggestFromTarget(null, "5", "7")).toBeNull();
+    expect(suggestFromTarget(145.6, "5", "Load indien te licht")).toBeNull();
+  });
+});
+
+describe("RPE inschatten", () => {
+  it("vindt de RPE terug uit de tabel", () => {
+    // 1RM 100 kg: 81 kg × 5 = 81% = RPE 8 in de tabel.
+    expect(estimateRpe(81, 5, 100)).toEqual({ rpe: 8 });
+  });
+
+  it("interpoleert tussen twee rijen", () => {
+    // 5 reps: RPE 8 = 81%, RPE 8,5 = 82% → 81,5% ≈ RPE 8,25
+    const result = estimateRpe(81.5, 5, 100);
+    expect(result && "rpe" in result ? result.rpe : null).toBeCloseTo(8.25, 5);
+  });
+
+  it("meldt als het gewicht buiten de tabel valt", () => {
+    expect(estimateRpe(90, 5, 100)).toEqual({ outOfRange: "above" }); // 90% bij 5 reps > RPE 10
+    expect(estimateRpe(60, 5, 100)).toEqual({ outOfRange: "below" });
+    expect(estimateRpe(80, 15, 100)).toBeNull();
+  });
+});
+
+describe("schijven per kant", () => {
+  it("legt de zwaarste schijven eerst", () => {
+    expect(platesPerSide(140)).toEqual({ plates: [25, 25, 10], rest: 0 });
+    expect(platesPerSide(102.5)).toEqual({ plates: [25, 15, 1.25], rest: 0 });
+  });
+
+  it("kent de lege stang en te lichte gewichten", () => {
+    expect(platesPerSide(20)).toEqual({ plates: [], rest: 0 });
+    expect(platesPerSide(15)).toBeNull();
+  });
+
+  it("meldt wat je niet precies kan leggen", () => {
+    expect(platesPerSide(101)).toEqual({ plates: [25, 15], rest: 1 });
+  });
+});
