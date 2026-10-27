@@ -1,6 +1,6 @@
 "use client";
 // Client Component: dit is het meest interactieve scherm van de app. Sets
-// toevoegen, afvinken, de rusttimer starten en een concept bewaren gebeurt
+// toevoegen, afvinken, voorstellen invullen en een concept bewaren gebeurt
 // allemaal in de browser. Pas bij "Opslaan" gaat alles naar de server.
 import { useEffect, useState, useSyncExternalStore, useTransition } from "react";
 import Link from "next/link";
@@ -18,7 +18,6 @@ import { groupByCategory } from "@/lib/exercises";
 import { RpeTable } from "@/components/rpe-table";
 import { createExercise, fetchExerciseHistory, saveWorkout } from "./actions";
 import { PlatesLine, PrLine, SuggestionLine, TargetPicker, type Suggestion } from "./lift-insights";
-import { RestTimer } from "./rest-timer";
 import type { DraftExercise, DraftSet, WorkoutDraft } from "./types";
 
 type Props = {
@@ -145,8 +144,6 @@ export function WorkoutLogger(props: Props) {
   const [stats, setStats] = useState(props.stats);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, startSaving] = useTransition();
-  const [timerEnd, setTimerEnd] = useState<number | null>(null);
-  const [restSeconds, setRestSeconds] = useState(120);
 
   // Elke wijziging gaat via update(): zo weten we dat de gebruiker begonnen is.
   function update(change: (current: WorkoutDraft) => WorkoutDraft) {
@@ -190,7 +187,6 @@ export function WorkoutLogger(props: Props) {
       reps: set.reps || lowerBound(targetFor(exercise).reps),
       weight: set.weight || (fallbackWeight != null ? toInput(fallbackWeight) : ""),
     });
-    setTimerEnd(Date.now() + restSeconds * 1000);
   }
 
   /** Het voorstel invullen in alle sets die nog geen gewicht hebben en niet af zijn. */
@@ -242,7 +238,7 @@ export function WorkoutLogger(props: Props) {
   }
 
   return (
-    <div className="pb-16">
+    <div>
       {restorable && (
         <div role="status" className="mb-6 border border-lime p-4">
           <p className="font-semibold">Niet-opgeslagen training gevonden</p>
@@ -419,7 +415,7 @@ export function WorkoutLogger(props: Props) {
                         <button
                           type="button"
                           aria-pressed={set.done}
-                          aria-label={`${exercise.name} set ${setIndex + 1} ${set.done ? "niet meer afvinken" : "afvinken en rust starten"}`}
+                          aria-label={`${exercise.name} set ${setIndex + 1} ${set.done ? "niet meer afvinken" : "afvinken"}`}
                           onClick={() => toggleDone(exercise, set)}
                           className={cn(
                             "inline-flex size-11 items-center justify-center border text-lg font-bold",
@@ -569,14 +565,6 @@ export function WorkoutLogger(props: Props) {
           {isSaving ? "Opslaan…" : "Training opslaan"}
         </Button>
       </div>
-
-      <RestTimer
-        endAt={timerEnd}
-        defaultSeconds={restSeconds}
-        onStart={(seconds) => setTimerEnd(Date.now() + seconds * 1000)}
-        onStop={() => setTimerEnd(null)}
-        onChangeDefault={setRestSeconds}
-      />
     </div>
   );
 }

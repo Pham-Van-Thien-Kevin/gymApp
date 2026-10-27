@@ -175,6 +175,20 @@ export async function getSetLog(memberId: string, exerciseId: string): Promise<S
   return data;
 }
 
+/** Zoals getSetLog, maar voor meerdere oefeningen tegelijk (één query met "in"). */
+export async function getSetLogs(memberId: string, exerciseIds: string[]): Promise<SetLogRow[]> {
+  if (exerciseIds.length === 0) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("set_log")
+    .select("exercise_id, workout_id, date, set_number, reps, weight, rpe, reps_estimated")
+    .eq("member_id", memberId)
+    .in("exercise_id", exerciseIds)
+    .order("date");
+  if (error) fail("Progressie laden", error);
+  return data;
+}
+
 /** Oefeningen die deze member ooit uitvoerde, meest gelogde eerst. */
 export async function getLoggedExercises(memberId: string): Promise<{ id: string; name: string; count: number }[]> {
   const supabase = await createClient();

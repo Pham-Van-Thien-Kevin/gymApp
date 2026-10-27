@@ -52,7 +52,7 @@ export default async function MemberHome() {
           <EmptyState
             title="Nog geen schema"
             action={
-              <ButtonLink href="/app/log" size="lg">
+              <ButtonLink href="/app/log?vrij=1" size="lg">
                 Vrije training loggen
               </ButtonLink>
             }
@@ -71,7 +71,7 @@ export default async function MemberHome() {
               <ButtonLink href={`/app/log?day=${plan.next.id}`} variant="secondary">
                 Toch trainen
               </ButtonLink>
-              <ButtonLink href="/app/log" variant="ghost">
+              <ButtonLink href="/app/log?vrij=1" variant="ghost">
                 Vrije training
               </ButtonLink>
             </div>

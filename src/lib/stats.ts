@@ -53,6 +53,18 @@ export function buildProgressSeries(rows: SetLogRow[]): ProgressPoint[] {
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
+/**
+ * Leg meerdere reeksen naast elkaar op één tijd-as: één rij per datum met per
+ * reeks een waarde. Werd een lift die dag niet getraind, dan ontbreekt de sleutel.
+ */
+export function combineByDate<K extends string>(series: Record<K, { date: string; value: number }[]>) {
+  const byDate = new Map<string, Record<string, number | string>>();
+  for (const [key, points] of Object.entries(series) as [K, { date: string; value: number }[]][]) {
+    for (const { date, value } of points) byDate.set(date, { ...byDate.get(date), date, [key]: value });
+  }
+  return [...byDate.values()].sort((a, b) => String(a.date).localeCompare(String(b.date))) as ({ date: string } & Partial<Record<K, number>>)[];
+}
+
 export type ReferenceMax = { e1rm: number; date: string };
 
 /**

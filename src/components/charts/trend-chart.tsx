@@ -9,14 +9,19 @@ import { formatNumber } from "@/lib/stats";
 export type TrendSeries = {
   key: string;
   label: string;
-  /** Met maar één kleur onderscheiden we reeksen via doorzichtigheid en streepjes. */
-  dashed?: boolean;
+  /**
+   * Met maar één kleur onderscheiden we reeksen via doorzichtigheid en het
+   * lijnpatroon: een SVG stroke-dasharray, bv. "6 4" (streepjes) of "1 5" (stippen).
+   */
+  dash?: string;
   opacity?: number;
+  /** CSS-kleur van de lijn, standaard lime. Bv. "var(--color-lift-squat)". */
+  color?: string;
 };
 
-type Point = { date: string } & Record<string, number | string | null>;
+type Point = { date: string } & Record<string, number | string | null | undefined>;
 
-// Assen, raster en labels zijn chalk (currentColor); enkel de datalijnen zijn lime.
+// Assen, raster en labels zijn chalk (currentColor); de datalijnen zijn lime, tenzij een reeks een eigen kleur meekrijgt.
 // Een CSS-variabele werkt ook als SVG-attribuut, zo blijft de kleur in globals.css staan.
 const ACCENT = "var(--color-lime)";
 
@@ -36,7 +41,9 @@ export function TrendChart({
   // Een tijd-as (getallen) i.p.v. tekstlabels: zo staan trainingen die 3 weken
   // uit elkaar liggen ook echt verder uit elkaar dan twee op opeenvolgende dagen.
   const rows = data.map((point) => ({ ...point, t: parseISODate(point.date).getTime() }));
-  const last = rows.length - 1;
+  // Per reeks het laatste punt mét waarde: in een gecombineerde grafiek eindigt
+  // niet elke lift op dezelfde dag.
+  const lastIndex = Object.fromEntries(series.map((s) => [s.key, data.findLastIndex((point) => typeof point[s.key] === "number")]));
 
   return (
     <figure className="text-chalk">
@@ -50,10 +57,11 @@ export function TrendChart({
                   y1="4"
                   x2="24"
                   y2="4"
-                  stroke={ACCENT}
+                  stroke={s.color ?? ACCENT}
                   strokeWidth="2"
                   strokeOpacity={s.opacity ?? 1}
-                  strokeDasharray={s.dashed ? "4 3" : undefined}
+                  strokeDasharray={s.dash}
+                  strokeLinecap="round"
                 />
               </svg>
               {s.label}
@@ -82,6 +90,8 @@ export function TrendChart({
             <YAxis
               width={44}
               domain={["auto", "auto"]}
+              // Labels tonen we zonder decimalen, dus enkel hele ticks: anders staat er "64, 64, 63".
+              allowDecimals={false}
               stroke="currentColor"
               strokeOpacity={0.3}
               tick={{ fill: "currentColor", fillOpacity: 0.7, fontSize: 12 }}
@@ -113,12 +123,13 @@ export function TrendChart({
                 type="monotone"
                 dataKey={s.key}
                 name={s.label}
-                stroke={ACCENT}
+                stroke={s.color ?? ACCENT}
                 strokeWidth={2}
                 strokeOpacity={s.opacity ?? 1}
-                strokeDasharray={s.dashed ? "6 4" : undefined}
-                dot={{ r: 4, fill: "var(--color-ink)", stroke: ACCENT, strokeWidth: 2, strokeOpacity: s.opacity ?? 1 }}
-                activeDot={{ r: 6, fill: ACCENT, stroke: "var(--color-ink)", strokeWidth: 2 }}
+                strokeDasharray={s.dash}
+                strokeLinecap="round"
+                dot={{ r: 4, fill: "var(--color-ink)", stroke: s.color ?? ACCENT, strokeWidth: 2, strokeOpacity: s.opacity ?? 1 }}
+                activeDot={{ r: 6, fill: s.color ?? ACCENT, stroke: "var(--color-ink)", strokeWidth: 2 }}
                 connectNulls
                 isAnimationActive={false}
               >
@@ -126,7 +137,7 @@ export function TrendChart({
                 <LabelList
                   dataKey={s.key}
                   content={({ x, y, value, index }) =>
-                    index === last && value != null ? (
+                    index === lastIndex[s.key] && value != null ? (
                       <text x={Number(x) + 8} y={Number(y) + 4} fill="currentColor" fontSize={12} fontWeight={600}>
                         {formatNumber(Number(value), 1)}
                       </text>

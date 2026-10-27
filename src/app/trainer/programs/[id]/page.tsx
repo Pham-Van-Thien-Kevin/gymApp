@@ -11,7 +11,7 @@ import { isUuid } from "@/lib/parse";
 import { formatTarget } from "@/lib/program";
 import { createClient } from "@/lib/supabase/server";
 import type { Exercise, ProgramDay, ProgramExercise } from "@/lib/types";
-import { groupByCategory } from "@/lib/exercises";
+import { groupByCategory, uniqueByName } from "@/lib/exercises";
 import { ActionForm } from "@/components/ui/action-form";
 import { Field, SelectField, TextareaField } from "@/components/ui/form";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -72,7 +72,7 @@ export default async function ProgramEditor({ params }: PageProps<"/trainer/prog
             <ol className="flex flex-col gap-6">
               {days.map((day, index) => (
                 <li key={day.id}>
-                  <DayEditor programId={id} day={day} index={index} total={days.length} exercises={exercises} />
+                  <DayEditor programId={id} day={day} index={index} total={days.length} exercises={uniqueByName(exercises, trainer.id)} />
                 </li>
               ))}
             </ol>

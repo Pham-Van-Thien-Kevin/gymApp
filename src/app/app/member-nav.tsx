@@ -14,6 +14,7 @@ const primary = [
 
 const more = [
   { href: "/app/history", label: "Historiek" },
+  { href: "/app/log?vrij=1", label: "Vrije training" },
   { href: "/app/checkin", label: "Check-in" },
   { href: "/app/rpe", label: "RPE-calculator" },
   { href: "/app/import", label: "Import" },

@@ -20,7 +20,7 @@ export default async function SchemaPage() {
         <EmptyState
           title="Nog geen schema"
           action={
-            <ButtonLink href={profile.trainer_id ? "/app/log" : "/app/profile"} variant="secondary">
+            <ButtonLink href={profile.trainer_id ? "/app/log?vrij=1" : "/app/profile"} variant="secondary">
               {profile.trainer_id ? "Vrije training loggen" : "Trainer koppelen"}
             </ButtonLink>
           }

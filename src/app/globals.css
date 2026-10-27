@@ -11,6 +11,11 @@
  *  - chalk = gewone tekst en 1px-lijnen (gebroken wit, zoals magnesium in de gym)
  *  - lime  = enkel ACCENT: primaire knoppen, actieve tab, markeringen, focus, grafieklijnen
  * Varianten maak je met opacity (`text-chalk/60`), nooit met een extra kleur.
+ *
+ * Uitzondering: de grafiek met squat, bench en deadlift samen heeft drie
+ * datakleuren nodig. Die (--color-lift-*) gebruik je enkel voor grafieklijnen,
+ * nooit voor tekst of knoppen. Ze zijn getest op de ink-achtergrond: even
+ * helder (zodat geen enkele lift opvalt) en ook voor kleurenblinden te onderscheiden.
  */
 @theme {
   /* Wis het standaardpalet: alleen onze drie kleuren bestaan nog. Een class als
@@ -24,6 +29,15 @@
   --shadow-*: initial;
   --inset-shadow-*: initial;
   --drop-shadow-*: initial;
+}
+
+/* `static`: Tailwind zet normaal enkel variabelen op :root die een class gebruikt.
+   Deze kleuren lezen we alleen via var(...) in Recharts, dus zonder `static`
+   zouden ze wegvallen en waren de lijnen onzichtbaar. */
+@theme static {
+  --color-lift-squat: #86a000;
+  --color-lift-bench: #3b98e0;
+  --color-lift-deadlift: #e5644a;
 }
 
 /* `inline` omdat --font-space-grotesk pas door next/font op <html> gezet wordt. */

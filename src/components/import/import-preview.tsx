@@ -10,7 +10,7 @@ import { nameKey, type ImportChoices, type NameChoice } from "@/lib/import/match
 import type { ParsedExercise, ParsedMonth } from "@/lib/import/types";
 import { formatNumber } from "@/lib/stats";
 import { EXERCISE_CATEGORIES } from "@/lib/types";
-import { groupByCategory } from "@/lib/exercises";
+import { groupByCategory, uniqueByName } from "@/lib/exercises";
 
 type Props = {
   preview: ImportPreview;
@@ -136,7 +136,7 @@ export function ImportPreviewView({ preview, choices, onChange }: Props) {
                     }
                   >
                     <option value="new">+ Nieuw: {choice?.kind === "new" ? choice.name : name.name}</option>
-                    {groupByCategory(library).map((group) => (
+                    {groupByCategory(uniqueByName(library, null)).map((group) => (
                       <optgroup key={group.category} label={group.category}>
                         {group.items.map((exercise) => (
                           <option key={exercise.id} value={exercise.id}>

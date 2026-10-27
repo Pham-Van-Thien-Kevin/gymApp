@@ -2,7 +2,7 @@
 
 Gym-tracking webapp met twee kanten:
 
-- **Gebruikersapp** (`/app`, mobile-first) voor sporters: training van vandaag volgens het schema, trainingen loggen met doelen, vorige prestatie, **voorgesteld gewicht**, schijvencalculator, PR-meldingen en rusttimer, progressiegrafieken, maxima per blok, lichaamsgewicht, wekelijkse check-in, historiek met trainersfeedback en import uit Google Sheets.
+- **Gebruikersapp** (`/app`, mobile-first) voor sporters: training van vandaag volgens het schema, trainingen loggen met doelen, vorige prestatie, **voorgesteld gewicht**, schijvencalculator, PR-meldingen, progressiegrafieken, maxima per blok, lichaamsgewicht, wekelijkse check-in, historiek met trainersfeedback en import uit Google Sheets.
 - **Trainerdashboard** (`/trainer`, desktop-first) voor coaches: overzicht van alle cliënten (met markering bij 7+ dagen inactief of pijn "BAD"), cliëntdetail, schema's bouwen en toewijzen, oefeningenbibliotheek, feedback op trainingen en import voor een cliënt.
 
 De naam "Liftlog" is een voorlopige naam. Je past hem op één plek aan: [`src/lib/config.ts`](src/lib/config.ts).
@@ -94,6 +94,17 @@ Open [http://localhost:3000](http://localhost:3000) en log in met een demo-accou
 
 > Een gratis Supabase-project pauzeert na een week zonder activiteit. Je zet het weer aan via het dashboard.
 
+> **Waarom niet via FTP (FileZilla) op gewone webhosting?** Liftlog draait code op de server (Server Components, Server Actions, `proxy.ts`). Daarvoor moet er een Node.js-proces blijven draaien. Gewone webhosting (bv. Combell) serveert enkel bestanden en PHP, dus losse bestanden uploaden geeft geen werkende app.
+
+### 7. Eigen adres via je domein (optioneel, bv. Combell)
+
+Wil je `liftlog.jouwdomein.be` in plaats van `….vercel.app`? De app blijft op Vercel draaien, je domein wijst er enkel naar.
+
+1. Vercel: **Project → Settings → Domains → Add** en vul `liftlog.jouwdomein.be` in. Vercel toont welk DNS-record nodig is (een **CNAME**, meestal naar `cname.vercel-dns.com`).
+2. Combell: **Mijn producten → je domein → DNS-beheer → Record toevoegen**: type `CNAME`, hostnaam `liftlog`, waarde zoals Vercel aangeeft.
+3. Wacht tot Vercel het domein als *Valid* toont (minuten tot een paar uur). Het HTTPS-certificaat regelt Vercel zelf.
+4. Zet in Supabase de *Site URL* op `https://liftlog.jouwdomein.be` en voeg `https://liftlog.jouwdomein.be/**` toe aan de *Redirect URLs*. Zet in Vercel ook `NEXT_PUBLIC_SITE_URL` op dat adres en klik **Redeploy**.
+
 ## Scripts
 
 | Commando | Wat het doet |
@@ -124,7 +135,7 @@ src/
     (auth)/login, register      Inloggen en registreren (+ Server Actions in actions.ts)
     auth/confirm/route.ts       Bevestigingslink uit de e-mail
     app/                        URL /app: gebruikersapp (layout controleert rol "member")
-      log/                      Training loggen: logger, rusttimer, Server Actions
+      log/                      Training loggen: logger, Server Actions
       schema/ progress/ checkin/ history/ import/ profile/
     trainer/                    URL /trainer: dashboard (layout controleert rol "trainer")
       clients/[id]/             Cliëntdetail, trainingen + feedback, import
@@ -142,7 +153,7 @@ fixtures/gymSheet.xlsx
 tests/
 ```
 
-**Server of Client Component?** Standaard is alles een Server Component: data wordt op de server opgehaald en er gaat enkel HTML naar de browser. Een bestand begint pas met `"use client"` als het state, effects of browser-API's nodig heeft (formulieren met directe feedback, de logger, de rusttimer, grafieken). Elk bestand legt bovenaan uit waarom het het een of het ander is.
+**Server of Client Component?** Standaard is alles een Server Component: data wordt op de server opgehaald en er gaat enkel HTML naar de browser. Een bestand begint pas met `"use client"` als het state, effects of browser-API's nodig heeft (formulieren met directe feedback, de logger, de RPE-calculator, grafieken). Elk bestand legt bovenaan uit waarom het het een of het ander is.
 
 ## Powerlifting-functies
 
