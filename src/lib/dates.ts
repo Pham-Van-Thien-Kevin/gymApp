@@ -61,6 +61,8 @@ export function relativeDays(iso: string, today: string = todayISO()): string {
   const diff = daysBetween(iso, today);
   if (diff === 0) return "vandaag";
   if (diff === 1) return "gisteren";
+  // Geplande trainingen liggen in de toekomst (bv. geïmporteerd uit je sheet).
+  if (diff === -1) return "morgen";
   if (diff < 0) return `over ${-diff} dagen`;
   return `${diff} dagen geleden`;
 }

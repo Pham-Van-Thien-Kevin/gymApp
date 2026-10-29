@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { getWorkoutDetail } from "@/lib/data";
 import { isUuid } from "@/lib/parse";
+import { ButtonLink } from "@/components/ui/button";
 import { FormMessage } from "@/components/ui/form";
 import { PageHeader } from "@/components/ui/layout";
 import { WorkoutDetail } from "@/components/workout-detail";
@@ -24,7 +25,19 @@ export default async function WorkoutPage({ params, searchParams }: PageProps<"/
       <Link href="/app/history" className="mb-4 inline-block text-sm text-chalk/70 underline underline-offset-4 hover:text-chalk">
         ← Historiek
       </Link>
-      <PageHeader title={workout.title ?? "Training"} actions={<DeleteWorkoutButton workoutId={workout.id} />} />
+      <PageHeader
+        title={workout.title ?? "Training"}
+        actions={
+          <>
+            {workout.status === "planned" && (
+              <ButtonLink href={`/app/log?gepland=${workout.id}`} size="sm">
+                Afwerken
+              </ButtonLink>
+            )}
+            <DeleteWorkoutButton workoutId={workout.id} />
+          </>
+        }
+      />
       {saved && (
         <div className="mb-6">
           <FormMessage state={{ success: "Training opgeslagen. Sterk werk!" }} />

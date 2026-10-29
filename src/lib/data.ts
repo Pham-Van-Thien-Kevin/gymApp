@@ -4,6 +4,7 @@ import "server-only";
 // RLS in Postgres. Vraagt een trainer data van iemand die niet zijn cliënt is,
 // dan krijgt hij gewoon niets terug.
 import { createClient } from "@/lib/supabase/server";
+import type { ExportData, ExportWorkout } from "@/lib/export";
 import { suggestFromTarget } from "@/lib/rpe";
 import { buildProgressSeries, pickReferenceE1rm } from "@/lib/stats";
 import type {
@@ -134,6 +135,31 @@ export async function getWorkouts(
     import_batch_id: row.import_batch_id,
     exercise_count: row.workout_exercises?.[0]?.count ?? 0,
     feedback_count: row.workout_feedback?.[0]?.count ?? 0,
+  }));
+  return { items, total: count ?? items.length };
+}
+
+/** Geplande (nog niet afgewerkte) trainingen, vroegste eerst. */
+export async function getPlannedWorkouts(memberId: string, limit = 8): Promise<{ items: WorkoutListItem[]; total: number }> {
+  const supabase = await createClient();
+  const { data, error, count } = await supabase
+    .from("workouts")
+    .select("id, date, title, status, duration_minutes, import_batch_id, workout_exercises(count)", { count: "exact" })
+    .eq("member_id", memberId)
+    .eq("status", "planned")
+    .order("date")
+    .limit(limit);
+  if (error) fail("Geplande trainingen laden", error);
+
+  const items = data.map((row) => ({
+    id: row.id,
+    date: row.date,
+    title: row.title,
+    status: row.status,
+    duration_minutes: row.duration_minutes,
+    import_batch_id: row.import_batch_id,
+    exercise_count: row.workout_exercises?.[0]?.count ?? 0,
+    feedback_count: 0,
   }));
   return { items, total: count ?? items.length };
 }
@@ -350,4 +376,43 @@ export async function getImportBatches(memberId: string) {
     created_at: batch.created_at as string,
     workout_count: (batch.workouts?.[0]?.count ?? 0) as number,
   }));
+}
+
+/**
+ * Alles voor de Excel-export van één sporter. Trainingen in blokken van 200:
+ * Supabase geeft standaard maximaal 1000 rijen per verzoek terug.
+ */
+export async function getExportData(memberId: string): Promise<ExportData> {
+  const supabase = await createClient();
+  const workouts: ExportWorkout[] = [];
+  for (let from = 0; ; from += 200) {
+    const { data, error } = await supabase
+      .from("workouts")
+      .select(
+        `date, title, status, duration_minutes, notes,
+         workout_exercises ( position, target_sets, target_reps, target_intensity, actual_rpe, notes, optional, performed,
+           exercise:exercises ( id, name ),
+           workout_sets ( set_number, reps, weight, rpe ) ),
+         cardio_entries ( type, duration_minutes )`,
+      )
+      .eq("member_id", memberId)
+      .order("date")
+      .order("created_at")
+      .range(from, from + 199);
+    if (error) fail("Export laden", error);
+    for (const workout of data as unknown as ExportWorkout[]) {
+      workout.workout_exercises.sort((a, b) => a.position - b.position);
+      workout.workout_exercises.forEach((we) => we.workout_sets.sort((a, b) => a.set_number - b.set_number));
+      workouts.push(workout);
+    }
+    if (data.length < 200) break;
+  }
+
+  const [strengthTests, bodyMetrics, checkins] = await Promise.all([
+    getStrengthTests(memberId),
+    getBodyMetrics(memberId),
+    getCheckins(memberId, 1000),
+  ]);
+  // Oud → nieuw, net zoals de trainingen.
+  return { workouts, strengthTests, bodyMetrics: [...bodyMetrics].sort((a, b) => a.date.localeCompare(b.date)), checkins: [...checkins].reverse() };
 }

@@ -13,7 +13,14 @@ import { formatTarget } from "@/lib/program";
 import { formatNumber } from "@/lib/stats";
 import { parseDecimal, parseInteger } from "@/lib/parse";
 import { estimateOneRepMax, suggestFromTarget, targetRpeFrom } from "@/lib/rpe";
-import { EXERCISE_CATEGORIES, type Exercise, type LiftStats, type PreviousPerformance, type ProgramDay } from "@/lib/types";
+import {
+  EXERCISE_CATEGORIES,
+  type Exercise,
+  type LiftStats,
+  type PreviousPerformance,
+  type ProgramDay,
+  type WorkoutDetail,
+} from "@/lib/types";
 import { groupByCategory } from "@/lib/exercises";
 import { RpeTable } from "@/components/rpe-table";
 import { createExercise, fetchExerciseHistory, saveWorkout } from "./actions";
@@ -24,6 +31,8 @@ type Props = {
   memberId: string;
   today: string;
   programDay: ProgramDay | null;
+  /** Geplande training uit je sheet die je nu afwerkt (in plaats van een schemadag). */
+  planned?: WorkoutDetail | null;
   exercises: Exercise[];
   previous: Record<string, PreviousPerformance>;
   stats: Record<string, LiftStats>;
@@ -35,7 +44,11 @@ const newKey = () => crypto.randomUUID();
 
 const emptySet = (key: string): DraftSet => ({ key, reps: "", weight: "", rpe: "", done: false });
 
-function initialDraft({ today, programDay }: Props): WorkoutDraft {
+function initialDraft(props: Props): WorkoutDraft {
+  return props.planned ? draftFromPlanned(props.planned, props) : draftFromProgramDay(props);
+}
+
+function draftFromProgramDay({ today, programDay }: Props): WorkoutDraft {
   return {
     version: 1,
     programDayId: programDay?.id ?? null,
@@ -58,6 +71,42 @@ function initialDraft({ today, programDay }: Props): WorkoutDraft {
         barbell: pe.exercise!.equipment === "Barbell",
         notes: pe.notes ?? "",
         sets: Array.from({ length: pe.target_sets ?? 1 }, (_, i) => emptySet(`pe-${pe.id}-${i}`)),
+      })),
+  };
+}
+
+/**
+ * Een geplande training uit je sheet als startpunt. De datum wordt vandaag (dan
+ * train je ze); wat al ingevuld was, blijft staan. Zonder sets krijg je zoveel
+ * lege sets als het doel aangeeft.
+ */
+function draftFromPlanned(planned: WorkoutDetail, { today, exercises }: Props): WorkoutDraft {
+  const str = (value: number | null) => (value === null ? "" : toInput(value));
+  return {
+    version: 1,
+    programDayId: null,
+    plannedWorkoutId: planned.id,
+    savedAt: 0,
+    date: today,
+    title: planned.title ?? "Training",
+    duration: "",
+    notes: planned.notes ?? "",
+    cardio: planned.cardio_entries.map((c) => ({ key: `pc-${c.id}`, type: c.type, minutes: str(c.duration_minutes) })),
+    exercises: planned.workout_exercises
+      .filter((we) => we.exercise)
+      .map((we) => ({
+        key: `pw-${we.id}`,
+        exerciseId: we.exercise!.id,
+        name: we.exercise!.name,
+        targetSets: we.target_sets,
+        targetReps: we.target_reps,
+        targetIntensity: we.target_intensity,
+        optional: we.optional,
+        barbell: exercises.some((e) => e.id === we.exercise!.id && e.equipment === "Barbell"),
+        notes: we.notes ?? "",
+        sets: we.workout_sets.length
+          ? we.workout_sets.map((s) => ({ key: `pw-${s.id}`, reps: str(s.reps), weight: str(s.weight), rpe: str(s.rpe), done: false }))
+          : Array.from({ length: we.target_sets ?? 1 }, (_, i) => emptySet(`pw-${we.id}-${i}`)),
       })),
   };
 }

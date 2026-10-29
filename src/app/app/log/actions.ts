@@ -69,6 +69,8 @@ export async function saveWorkout(draft: WorkoutDraft): Promise<SaveResult> {
       date: draft.date,
       title: text(draft.title, 120) || "Training",
       program_day_id: isUuid(draft.programDayId) ? draft.programDayId : null,
+      // Afwerken van een geplande training; de database controleert of ze echt van jou en nog gepland is.
+      workout_id: isUuid(draft.plannedWorkoutId) ? draft.plannedWorkoutId : null,
       duration_minutes: duration,
       notes: text(draft.notes, 2000),
       exercises,

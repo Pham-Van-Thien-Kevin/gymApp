@@ -181,6 +181,10 @@ create table public.workouts (
   notes text,
   status public.workout_status not null default 'completed',
   import_batch_id uuid references public.import_batches (id) on delete cascade,
+  -- Gepland uit een sheet en in de app afgewerkt: de oorspronkelijke datum en
+  -- titel, zodat een nieuwe import deze sessie herkent (zie import_sheet).
+  planned_date date,
+  planned_title text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -799,6 +803,11 @@ $$;
 -- Een training loggen vanuit de app: workout + oefeningen + sets + cardio in
 -- één transactie, zodat je nooit een "halve" training in de database krijgt.
 -- security invoker: RLS geldt, de training komt altijd op naam van auth.uid().
+--
+-- Met payload.workout_id werk je een GEPLANDE training af (bv. uit je sheet):
+-- die rij wordt 'completed' en krijgt de gelogde oefeningen in plaats van de
+-- planning. Ze komt los van de import (import_batch_id = null), zodat een
+-- nieuwe import van die maand je gelogde sets niet wist.
 create function public.log_workout(payload jsonb)
 returns uuid
 language plpgsql set search_path = ''
@@ -812,17 +821,42 @@ begin
     raise exception 'Alleen members kunnen trainingen loggen.';
   end if;
 
-  insert into public.workouts (member_id, date, title, program_day_id, duration_minutes, notes, status)
-  values (
-    (select auth.uid()),
-    (payload ->> 'date')::date,
-    nullif(trim(payload ->> 'title'), ''),
-    (payload ->> 'program_day_id')::uuid,
-    (payload ->> 'duration_minutes')::int,
-    nullif(trim(payload ->> 'notes'), ''),
-    'completed'
-  )
-  returning id into v_workout;
+  if payload ->> 'workout_id' is not null then
+    update public.workouts set
+      date = (payload ->> 'date')::date,
+      title = nullif(trim(payload ->> 'title'), ''),
+      duration_minutes = (payload ->> 'duration_minutes')::int,
+      notes = nullif(trim(payload ->> 'notes'), ''),
+      status = 'completed',
+      import_batch_id = null,
+      -- Rechts van "=" staan nog de oude waarden: de planning vóór deze update.
+      planned_date = date,
+      planned_title = title
+    where id = (payload ->> 'workout_id')::uuid
+      and member_id = (select auth.uid())
+      and status = 'planned'
+    returning id into v_workout;
+
+    if v_workout is null then
+      raise exception 'Deze geplande training bestaat niet (meer) of is al afgewerkt.';
+    end if;
+
+    -- De planning maakt plaats voor wat je echt deed (sets gaan mee via "on delete cascade").
+    delete from public.workout_exercises where workout_id = v_workout;
+    delete from public.cardio_entries where workout_id = v_workout;
+  else
+    insert into public.workouts (member_id, date, title, program_day_id, duration_minutes, notes, status)
+    values (
+      (select auth.uid()),
+      (payload ->> 'date')::date,
+      nullif(trim(payload ->> 'title'), ''),
+      (payload ->> 'program_day_id')::uuid,
+      (payload ->> 'duration_minutes')::int,
+      nullif(trim(payload ->> 'notes'), ''),
+      'completed'
+    )
+    returning id into v_workout;
+  end if;
 
   for v_item in select * from jsonb_array_elements(coalesce(payload -> 'exercises', '[]'::jsonb)) loop
     insert into public.workout_exercises (
@@ -926,6 +960,16 @@ begin
     returning id into v_batch;
 
     for v_workout in select * from jsonb_array_elements(coalesce(v_tab -> 'workouts', '[]'::jsonb)) loop
+      -- Al in de app afgewerkt (zie log_workout)? Dan de planning niet opnieuw toevoegen.
+      if v_workout ->> 'status' = 'planned' and exists (
+        select 1 from public.workouts w
+        where w.member_id = v_member
+          and w.planned_date = (v_workout ->> 'date')::date
+          and w.planned_title is not distinct from v_workout ->> 'title'
+      ) then
+        continue;
+      end if;
+
       insert into public.workouts (member_id, date, title, status, notes, import_batch_id)
       values (
         v_member,

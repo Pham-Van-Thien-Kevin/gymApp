@@ -1,10 +1,12 @@
 // Server Component: de historiek wordt op de server opgehaald, met paginering
-// via de URL (?pagina=2), zodat elke pagina een deelbare link heeft.
+// via de URL (?pagina=2), zodat elke pagina een deelbare link heeft. Bovenaan:
+// geplande sessies uit je sheet die je nog kan afwerken, en de export naar Excel.
 import type { Metadata } from "next";
 import { requireRole } from "@/lib/auth";
-import { getWorkouts } from "@/lib/data";
-import { ButtonLink } from "@/components/ui/button";
-import { EmptyState, PageHeader } from "@/components/ui/layout";
+import { getPlannedWorkouts, getWorkouts } from "@/lib/data";
+import { formatDate, relativeDays } from "@/lib/dates";
+import { ButtonLink, buttonClasses } from "@/components/ui/button";
+import { EmptyState, PageHeader, Section } from "@/components/ui/layout";
 import { WorkoutList } from "@/components/workout-list";
 
 export const metadata: Metadata = { title: "Historiek" };
@@ -15,12 +17,55 @@ export default async function HistoryPage({ searchParams }: PageProps<"/app/hist
   const profile = await requireRole("member");
   const { pagina } = await searchParams;
   const page = Math.max(1, Number(pagina) || 1);
-  const { items, total } = await getWorkouts(profile.id, { limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE });
+  const [{ items, total }, planned] = await Promise.all([
+    getWorkouts(profile.id, { limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE }),
+    getPlannedWorkouts(profile.id),
+  ]);
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
     <>
-      <PageHeader title="Historiek" description={`${total} trainingen`} />
+      <PageHeader
+        title="Historiek"
+        description={`${total} trainingen`}
+        actions={
+          total > 0 && (
+            // Een gewone <a>: het is een bestand, geen pagina. "download" vraagt de browser het op te slaan.
+            <a href="/app/export" download className={buttonClasses("secondary", "sm")}>
+              Exporteren (.xlsx)
+            </a>
+          )
+        }
+      />
+      {page === 1 && planned.total > 0 && (
+        <Section title={`Nog af te werken (${planned.total})`}>
+          <p className="-mt-2 mb-4 text-sm text-chalk/60">Gepland in je sheet, nog niet gelogd. Werk een sessie af in de logger.</p>
+          <ul className="divide-y divide-chalk/15 border-y border-chalk/15">
+            {planned.items.map((workout) => (
+              <li key={workout.id} className="flex min-h-16 items-center gap-4 py-3 sm:px-2">
+                <div className="w-14 shrink-0 text-center">
+                  <p className="text-2xl font-bold leading-none tabular-nums">{formatDate(workout.date, { day: "numeric" })}</p>
+                  <p className="text-xs uppercase text-chalk/60">{formatDate(workout.date, { month: "short" })}</p>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-semibold">{workout.title ?? "Training"}</p>
+                  <p className="text-sm text-chalk/60">
+                    {workout.exercise_count} oefeningen · {relativeDays(workout.date)}
+                  </p>
+                </div>
+                <ButtonLink href={`/app/log?gepland=${workout.id}`} size="sm" aria-label={`${workout.title ?? "Training"} afwerken`}>
+                  Afwerken
+                </ButtonLink>
+              </li>
+            ))}
+          </ul>
+          {planned.total > planned.items.length && (
+            <p className="mt-3 text-sm text-chalk/60">
+              Nog {planned.total - planned.items.length} geplande sessies verder in de historiek.
+            </p>
+          )}
+        </Section>
+      )}
       {total === 0 ? (
         <EmptyState
           title="Nog geen trainingen"

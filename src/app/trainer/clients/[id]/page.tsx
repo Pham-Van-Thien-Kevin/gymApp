@@ -9,7 +9,7 @@ import { isUuid } from "@/lib/parse";
 import { requireClient } from "@/lib/trainer";
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
-import { ButtonLink } from "@/components/ui/button";
+import { ButtonLink, buttonClasses } from "@/components/ui/button";
 import { ActionForm } from "@/components/ui/action-form";
 import { Field, SelectField } from "@/components/ui/form";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -69,9 +69,15 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/t
           </span>
         }
         actions={
-          <ButtonLink href={`/trainer/clients/${id}/import`} variant="secondary">
-            Importeren uit Google Sheets
-          </ButtonLink>
+          <>
+            <ButtonLink href={`/trainer/clients/${id}/import`} variant="secondary">
+              Importeren uit Google Sheets
+            </ButtonLink>
+            {/* Gewone <a>: een bestand, geen pagina. */}
+            <a href={`/trainer/clients/${id}/export`} download className={buttonClasses("secondary")}>
+              Exporteren (.xlsx)
+            </a>
+          </>
         }
       />
 

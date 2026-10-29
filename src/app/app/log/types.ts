@@ -24,6 +24,8 @@ export type DraftCardio = { key: string; type: string; minutes: string };
 export type WorkoutDraft = {
   version: 1;
   programDayId: string | null;
+  /** Een geplande training (bv. uit je sheet) die je nu afwerkt: die rij wordt bijgewerkt. */
+  plannedWorkoutId?: string | null;
   savedAt: number;
   date: string;
   title: string;

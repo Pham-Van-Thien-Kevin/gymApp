@@ -2,19 +2,28 @@
 // schemadag, vorige prestaties, geschatte maxima) en geeft het als props aan de
 // Client Component.
 //
-// Welke training? Met ?day=… die schemadag, met ?vrij=1 een vrije training.
+// Welke training? Met ?day=… die schemadag, met ?vrij=1 een vrije training,
+// met ?gepland=… een geplande training uit je sheet die je nu afwerkt.
 // Zonder parameters volgen we het schema van je trainer: op een trainingsdag
 // sturen we je meteen naar de sessie van vandaag, op een rustdag kies je zelf.
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
-import { getActiveAssignment, getExercises, getLiftStats, getPreviousPerformances, getProgramDay, getWorkoutDates } from "@/lib/data";
-import { addDays, todayISO } from "@/lib/dates";
+import {
+  getActiveAssignment,
+  getExercises,
+  getLiftStats,
+  getPreviousPerformances,
+  getProgramDay,
+  getWorkoutDates,
+  getWorkoutDetail,
+} from "@/lib/data";
+import { addDays, formatDate, todayISO } from "@/lib/dates";
 import { uniqueByName } from "@/lib/exercises";
 import { isUuid } from "@/lib/parse";
 import { pickTodaysDay, weekdayLabel } from "@/lib/program";
-import type { ProgramDay } from "@/lib/types";
+import type { ProgramDay, WorkoutDetail } from "@/lib/types";
 import { PageHeader } from "@/components/ui/layout";
 import { WorkoutLogger } from "./workout-logger";
 
@@ -22,9 +31,17 @@ export const metadata: Metadata = { title: "Training loggen" };
 
 export default async function LogPage({ searchParams }: PageProps<"/app/log">) {
   const profile = await requireRole("member");
-  const { day, vrij } = await searchParams;
+  const { day, vrij, gepland } = await searchParams;
   const dayId = isUuid(day) ? day : null;
   const today = todayISO();
+
+  if (isUuid(gepland)) {
+    // RLS verbergt andermans trainingen al; we controleren ook dat ze nog gepland is.
+    const planned = await getWorkoutDetail(gepland);
+    if (!planned || planned.member_id !== profile.id) notFound();
+    if (planned.status !== "planned") redirect(`/app/history/${planned.id}`);
+    return <LogPlanned memberId={profile.id} today={today} planned={planned} />;
+  }
 
   if (!dayId && vrij !== "1") {
     const assignment = await getActiveAssignment(profile.id);
@@ -71,6 +88,36 @@ export default async function LogPage({ searchParams }: PageProps<"/app/log">) {
         today={today}
         programDay={programDay}
         exercises={exercises}
+        previous={previous}
+        stats={stats}
+      />
+    </>
+  );
+}
+
+/** Een geplande training uit je sheet afwerken: dezelfde logger, met de planning als startpunt. */
+async function LogPlanned({ memberId, today, planned }: { memberId: string; today: string; planned: WorkoutDetail }) {
+  const exerciseIds = planned.workout_exercises.flatMap((we) => (we.exercise ? [we.exercise.id] : []));
+  const [allExercises, previous, stats] = await Promise.all([
+    getExercises(),
+    getPreviousPerformances(memberId, exerciseIds),
+    getLiftStats(memberId, exerciseIds, today),
+  ]);
+
+  return (
+    <>
+      <PageHeader
+        eyebrow={`Gepland voor ${formatDate(planned.date, { weekday: "long", day: "numeric", month: "long" })}`}
+        title={planned.title ?? "Training"}
+        description="Vink je sets af. Bij opslaan wordt deze geplande sessie een afgewerkte training."
+      />
+      <WorkoutLogger
+        key={planned.id}
+        memberId={memberId}
+        today={today}
+        programDay={null}
+        planned={planned}
+        exercises={uniqueByName(allExercises, memberId)}
         previous={previous}
         stats={stats}
       />

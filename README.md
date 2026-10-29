@@ -105,6 +105,14 @@ Wil je `liftlog.jouwdomein.be` in plaats van `….vercel.app`? De app blijft op 
 3. Wacht tot Vercel het domein als *Valid* toont (minuten tot een paar uur). Het HTTPS-certificaat regelt Vercel zelf.
 4. Zet in Supabase de *Site URL* op `https://liftlog.jouwdomein.be` en voeg `https://liftlog.jouwdomein.be/**` toe aan de *Redirect URLs*. Zet in Vercel ook `NEXT_PUBLIC_SITE_URL` op dat adres en klik **Redeploy**.
 
+### 8. Updates aan de database (als je app al online staat)
+
+`schema.sql` begint met alles op te ruimen, dus die voer je online maar één keer uit. Latere wijzigingen staan in [`supabase/updates/`](supabase/updates), op datum. Zo'n bestand wist niets en mag je veilig opnieuw draaien: plak het in de **SQL Editor** en klik **Run**, **vóór** je de nieuwe code naar `main` pusht.
+
+| Bestand | Wat |
+| --- | --- |
+| `2026-10-30-geplande-trainingen-afwerken.sql` | Geplande sessies uit je sheet afwerken in de app |
+
 ## Scripts
 
 | Commando | Wat het doet |
@@ -197,6 +205,10 @@ Extra:
 - Een rij zonder gewicht én zonder echte RPE is "gepland": ze wordt bewaard, maar telt niet mee in de progressie. Bij een rep-bereik neemt hij de ondergrens (`reps_estimated`), bij een RPE-bereik het gemiddelde. De originele celwaarden staan altijd in het `raw`-veld.
 - Sessiedatum = startdatum week 1 + (week − 1) × 7 + weekdag uit de kopregel (of de dag na de vorige sessie). Staat een weekdag vóór de vorige sessie (bv. sessie 4 op "Maandag" na een woensdag), dan wordt het de dag erna, met een waarschuwing.
 - Recap-scores: `GOOD` wordt `AMAZING` (positief op een schaal van drie). Andere waarden worden leeg, met een waarschuwing.
+
+**Geplande sessies afwerken**: een sessie die in de sheet nog niet gedaan is, staat bij *Historiek → Nog af te werken*. Met **Afwerken** open je ze in de logger, met de doelen uit de sheet. Bij opslaan wordt die rij een afgewerkte training (dezelfde id, los van de import). Importeer je die maand later opnieuw, dan herkent de import de sessie aan de oorspronkelijke datum en titel en zet hij de planning er niet nog eens bij.
+
+**Exporteren**: *Historiek → Exporteren (.xlsx)* (en de trainer via de cliëntpagina) downloadt een Excel-bestand met vier tabbladen: Trainingen (één rij per set), Maxima, Lichaamsgewicht en Check-ins.
 
 **Valkuil in de echte sheet**: Google Sheets zet tekst als `10-12` (reps) of `6-7` (RPE) automatisch om naar een datum. In de cel staat dan intern een getal (46366), op het scherm "10-12". De parser leest bij zulke datumcellen daarom de getoonde tekst.
 
