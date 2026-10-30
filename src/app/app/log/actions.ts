@@ -28,11 +28,13 @@ export async function saveWorkout(draft: WorkoutDraft): Promise<SaveResult> {
     if (!isUuid(exercise.exerciseId)) return { ok: false, error: "Er zit een ongeldige oefening in je training." };
     const sets = [];
     for (const set of exercise.sets ?? []) {
-      if (!set.reps.trim() && !set.weight.trim()) continue; // lege rij = niet gedaan
-      const reps = parseInteger(set.reps);
+      // Lege rij = niet gedaan. Een set telt met een gewicht, een RPE of als je ze afvinkte.
+      if (!set.reps.trim() && !set.weight.trim() && !set.rpe.trim() && !set.done) continue;
+      // Reps typ je niet in de logger: die vult hij in uit je doel. Zonder doel blijven ze leeg.
+      const reps = set.reps.trim() ? parseInteger(set.reps) : null;
       const weight = set.weight.trim() ? parseDecimal(set.weight) : null;
       const rpe = set.rpe.trim() ? parseDecimal(set.rpe) : null;
-      if (!inRange(reps, 0, 999)) return { ok: false, error: `${exercise.name}: vul bij elke set het aantal reps in.` };
+      if (set.reps.trim() && !inRange(reps, 0, 999)) return { ok: false, error: `${exercise.name}: ongeldig aantal reps.` };
       if (set.weight.trim() && !inRange(weight, 0, 1000)) return { ok: false, error: `${exercise.name}: ongeldig gewicht.` };
       if (set.rpe.trim() && !inRange(rpe, 0, 10)) return { ok: false, error: `${exercise.name}: RPE ligt tussen 0 en 10.` };
       sets.push({ reps, weight, rpe });

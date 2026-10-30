@@ -142,6 +142,11 @@ function lowerBound(reps: string | null) {
   return reps?.match(/\d+/)?.[0] ?? "";
 }
 
+/** De reps van een set: wat er al stond (bv. uit je sheet), anders je doel. */
+function repsFor(exercise: DraftExercise, set: DraftSet) {
+  return set.reps || lowerBound(targetFor(exercise).reps);
+}
+
 function describePrevious(previous: PreviousPerformance) {
   return previous.sets
     .map((set) => `${set.weight !== null ? formatNumber(set.weight, 2) : "BW"}×${set.reps ?? "?"}${set.rpe !== null ? ` @${formatNumber(set.rpe)}` : ""}`)
@@ -233,7 +238,7 @@ export function WorkoutLogger(props: Props) {
     const fallbackWeight = suggestionFor(exercise, stats)?.weight ?? lastWeight;
     updateSet(exercise.key, set.key, {
       done: true,
-      reps: set.reps || lowerBound(targetFor(exercise).reps),
+      reps: repsFor(exercise, set),
       weight: set.weight || (fallbackWeight != null ? toInput(fallbackWeight) : ""),
     });
   }
@@ -276,7 +281,15 @@ export function WorkoutLogger(props: Props) {
   function save() {
     setError(null);
     startSaving(async () => {
-      const result = await saveWorkout(draft);
+      // Reps uit het doel invullen voor elke set waar je kg of RPE invulde of die je afvinkte.
+      const withReps: WorkoutDraft = {
+        ...draft,
+        exercises: draft.exercises.map((e) => ({
+          ...e,
+          sets: e.sets.map((s) => (s.done || s.weight.trim() || s.rpe.trim() ? { ...s, reps: repsFor(e, s) } : s)),
+        })),
+      };
+      const result = await saveWorkout(withReps);
       if (!result.ok) {
         setError(result.error);
         return;
@@ -411,7 +424,7 @@ export function WorkoutLogger(props: Props) {
                 <thead className="text-xs uppercase tracking-wide text-chalk/60">
                   <tr>
                     <th scope="col" className="w-10 py-2 pl-4 font-medium">Set</th>
-                    <th scope="col" className="px-1 font-medium">Reps</th>
+                    <th scope="col" className="w-14 px-1 text-center font-medium">Reps</th>
                     <th scope="col" className="px-1 font-medium">Kg</th>
                     <th scope="col" className="px-1 font-medium">RPE</th>
                     <th scope="col" className="w-14 pr-4 text-right font-medium">
@@ -430,16 +443,8 @@ export function WorkoutLogger(props: Props) {
                           </span>
                         )}
                       </th>
-                      <td className="px-1">
-                        <input
-                          aria-label={`${exercise.name} set ${setIndex + 1} reps`}
-                          inputMode="numeric"
-                          className="field min-h-11 px-2 text-center tabular-nums"
-                          placeholder={lowerBound(targetFor(exercise).reps) || "–"}
-                          value={set.reps}
-                          onChange={(event) => updateSet(exercise.key, set.key, { reps: event.target.value })}
-                        />
-                      </td>
+                      {/* Reps typ je niet: ze komen uit je doel (bij "8-10" de ondergrens). Enkel kg en RPE invullen. */}
+                      <td className="px-1 text-center text-lg font-semibold tabular-nums">{repsFor(exercise, set) || "–"}</td>
                       <td className="px-1">
                         <input
                           aria-label={`${exercise.name} set ${setIndex + 1} gewicht in kg`}
