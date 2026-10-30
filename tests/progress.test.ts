@@ -8,6 +8,7 @@ describe("bigThreeLift", () => {
   it("herkent de wedstrijdlifts, ook met andere hoofdletters of spaties", () => {
     expect(bigThreeLift("Squat")).toBe("squat");
     expect(bigThreeLift(" comp  bench ")).toBe("bench");
+    expect(bigThreeLift("Benchpress")).toBe("bench");
     expect(bigThreeLift("Comp deadlift")).toBe("deadlift");
     expect(bigThreeLift("Sumo deadlift")).toBe("deadlift");
   });

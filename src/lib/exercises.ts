@@ -38,7 +38,7 @@ export type BigThreeLift = (typeof BIG_THREE)[number];
 // "Romanian deadlift" hebben een ander 1RM en zouden de lijn vertekenen.
 const BIG_THREE_NAMES: Record<BigThreeLift, string[]> = {
   squat: ["squat", "comp squat", "back squat", "competition squat"],
-  bench: ["bench", "comp bench", "bench press", "competition bench", "competition bench press"],
+  bench: ["bench", "benchpress", "comp bench", "comp benchpress", "bench press", "comp bench press", "competition bench", "competition bench press"],
   deadlift: ["deadlift", "comp deadlift", "competition deadlift", "conventional deadlift", "sumo deadlift"],
 };
 
