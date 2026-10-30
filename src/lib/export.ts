@@ -7,7 +7,7 @@
 // /app/export en /trainer/clients/[id]/export.
 import * as XLSX from "xlsx";
 import { daysBetween, formatDate, startOfWeek } from "@/lib/dates";
-import { firstMondayOfMonth } from "@/lib/import/dates";
+import { placeWorkout } from "@/lib/blocks";
 import type { BodyMetric, Checkin, StrengthTest, WorkoutDetail, WorkoutExerciseDetail, WorkoutSet } from "@/lib/types";
 
 // Precies de kolommen die getExportData ophaalt (geen id's of ruwe sheetdata).
@@ -33,7 +33,6 @@ export type ExportData = {
 type Cell = string | number | null;
 type Grid = Cell[][];
 
-const MONTH_TABS = ["JAN", "FEB", "MRT", "APR", "MEI", "JUN", "JUL", "AUG", "SEP", "OKT", "NOV", "DEC"];
 const WEEKDAYS = ["Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag", "Zondag"];
 
 // Indeling van het template (zelfde kolommen als de sheet van de coach).
@@ -45,17 +44,8 @@ const SESSION_HEADER = ["SETS", "REPS", "INTENSITEIT", "GEWICHT", "ECHTE RPE", "
 
 type MonthTab = { tab: string; year: number; month: number; week1: string; weeks: Map<number, ExportWorkout[]> };
 
-/**
- * In welke maandtab en week valt een training? Een week hoort bij de maand van
- * haar maandag. Week 1 begint dan altijd op de eerste maandag van de maand:
- * precies wat de import standaard aanneemt, dus heen en terug klopt.
- */
-export function placeWorkout(date: string) {
-  const monday = startOfWeek(date);
-  const [year, month] = monday.split("-").map(Number);
-  const week1 = firstMondayOfMonth(year, month - 1);
-  return { tab: `${MONTH_TABS[month - 1]}${year}`, year, month: month - 1, week1, week: daysBetween(week1, monday) / 7 + 1 };
-}
+// Zelfde maand- en weekindeling als de rest van de app (en de import).
+export { placeWorkout };
 
 /**
  * De rijen van één oefening, zoals in de sheet: opeenvolgende sets met hetzelfde

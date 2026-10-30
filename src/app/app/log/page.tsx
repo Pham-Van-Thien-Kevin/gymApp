@@ -20,6 +20,7 @@ import {
   getWorkoutDetail,
 } from "@/lib/data";
 import { addDays, formatDate, todayISO } from "@/lib/dates";
+import { plannedState } from "@/lib/blocks";
 import { uniqueByName } from "@/lib/exercises";
 import { isUuid } from "@/lib/parse";
 import { pickTodaysDay, weekdayLabel } from "@/lib/program";
@@ -39,7 +40,9 @@ export default async function LogPage({ searchParams }: PageProps<"/app/log">) {
     // RLS verbergt andermans trainingen al; we controleren ook dat ze nog gepland is.
     const planned = await getWorkoutDetail(gepland);
     if (!planned || planned.member_id !== profile.id) notFound();
-    if (planned.status !== "planned") redirect(`/app/history/${planned.id}`);
+    // Enkel een geplande sessie van DEZE week. Al afgewerkt, gemist (voorbije week)
+    // of nog op slot (volgende week): terug naar de training, die zegt waarom.
+    if (planned.status !== "planned" || plannedState(planned.date, today) !== "open") redirect(`/app/history/${planned.id}`);
     return <LogPlanned memberId={profile.id} today={today} planned={planned} />;
   }
 

@@ -5,6 +5,8 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { getWorkoutDetail } from "@/lib/data";
 import { isUuid } from "@/lib/parse";
+import { plannedState } from "@/lib/blocks";
+import { todayISO } from "@/lib/dates";
 import { ButtonLink } from "@/components/ui/button";
 import { FormMessage } from "@/components/ui/form";
 import { PageHeader } from "@/components/ui/layout";
@@ -29,7 +31,7 @@ export default async function WorkoutPage({ params, searchParams }: PageProps<"/
         title={workout.title ?? "Training"}
         actions={
           <>
-            {workout.status === "planned" && (
+            {workout.status === "planned" && plannedState(workout.date, todayISO()) === "open" && (
               <ButtonLink href={`/app/log?gepland=${workout.id}`} size="sm">
                 Afwerken
               </ButtonLink>

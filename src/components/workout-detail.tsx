@@ -2,7 +2,8 @@
 // trainersfeedback. Gedeeld door de historiek (member) en het trainerdashboard.
 import type { ReactNode } from "react";
 import { Badge, Card, Section } from "@/components/ui/layout";
-import { formatDate, formatLongDate } from "@/lib/dates";
+import { formatDate, formatLongDate, startOfWeek, todayISO } from "@/lib/dates";
+import { plannedState } from "@/lib/blocks";
 import { formatKg, formatNumber } from "@/lib/stats";
 import type { WorkoutDetail as Workout } from "@/lib/types";
 
@@ -35,7 +36,17 @@ export function WorkoutDetail({
       <div className="mb-6 flex flex-wrap items-center gap-2 text-sm text-chalk/70">
         <span>{formatLongDate(workout.date)}</span>
         {workout.duration_minutes ? <span>· {workout.duration_minutes} min</span> : null}
-        {workout.status === "planned" && <Badge>Gepland, niet uitgevoerd</Badge>}
+        {workout.status === "planned" && (
+          <Badge>
+            {
+              {
+                missed: "Gemist: niet uitgevoerd in die week",
+                open: "Gepland voor deze week",
+                locked: `Beschikbaar vanaf ${formatLongDate(startOfWeek(workout.date))}`,
+              }[plannedState(workout.date, todayISO())]
+            }
+          </Badge>
+        )}
         {workout.import_batch && <Badge>Import · {workout.import_batch.sheet_tab}</Badge>}
       </div>
 

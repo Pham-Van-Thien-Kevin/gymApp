@@ -3,6 +3,7 @@
 // Server Action is een publiek POST-endpoint, ook als de knop verborgen is.
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth";
+import { plannedState } from "@/lib/blocks";
 import { getLiftStats, getPreviousPerformances } from "@/lib/data";
 import { isValidISODate, todayISO } from "@/lib/dates";
 import { inRange, isUuid, parseDecimal, parseInteger, text } from "@/lib/parse";
@@ -63,6 +64,16 @@ export async function saveWorkout(draft: WorkoutDraft): Promise<SaveResult> {
   }
 
   const supabase = await createClient();
+
+  // Een geplande sessie afwerken mag enkel in haar eigen week (zie plannedState).
+  if (isUuid(draft.plannedWorkoutId)) {
+    const { data: planned } = await supabase.from("workouts").select("date, status").eq("id", draft.plannedWorkoutId).maybeSingle();
+    const state = planned ? plannedState(planned.date, todayISO()) : null;
+    if (!planned || planned.status !== "planned") return { ok: false, error: "Deze sessie is al afgewerkt of bestaat niet meer." };
+    if (state === "missed") return { ok: false, error: "Deze sessie hoort bij een voorbije week en kan niet meer afgewerkt worden." };
+    if (state === "locked") return { ok: false, error: "Deze sessie gaat pas maandag om 0:00 open." };
+  }
+
   // Eén RPC-call = één transactie (zie log_workout in supabase/schema.sql).
   const { data, error } = await supabase.rpc("log_workout", {
     payload: {

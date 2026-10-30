@@ -74,3 +74,33 @@ describe("weeklyTonnage", () => {
     ]);
   });
 });
+
+describe("plannedState en summarizeMonths", () => {
+  // Vrijdag 30 oktober 2026: deze week loopt van maandag 26 oktober tot zondag 1 november.
+  const today = "2026-10-30";
+
+  it("enkel deze week is af te werken; voorbij = gemist, later = op slot tot maandag 0:00", async () => {
+    const { plannedState } = await import("@/lib/blocks");
+    expect(plannedState("2026-10-25", today)).toBe("missed"); // zondag vorige week
+    expect(plannedState("2026-10-26", today)).toBe("open"); // maandag deze week
+    expect(plannedState("2026-11-01", today)).toBe("open"); // zondag deze week
+    expect(plannedState("2026-11-02", today)).toBe("locked"); // maandag volgende week
+    // Op maandag 2 november gaat die week open.
+    expect(plannedState("2026-11-02", "2026-11-02")).toBe("open");
+  });
+
+  it("telt per maand en week: gedaan / totaal, een gemiste sessie geeft 3/4", async () => {
+    const { summarizeMonths } = await import("@/lib/blocks");
+    const done = (date: string) => ({ date, status: "completed" as const });
+    const planned = (date: string) => ({ date, status: "planned" as const });
+    const [oct] = summarizeMonths(
+      [done("2026-10-19"), done("2026-10-20"), done("2026-10-24"), planned("2026-10-25"), done("2026-10-26"), planned("2026-10-29")],
+      today,
+    );
+    expect(oct.tab).toBe("OKT2026");
+    expect(oct.weeks.map((w) => [w.week, w.done, w.total, w.current])).toEqual([
+      [3, 3, 4, false],
+      [4, 1, 2, true],
+    ]);
+  });
+});

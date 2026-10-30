@@ -2,7 +2,8 @@
 // historiek (member) en de cliëntdetailpagina (trainer), met een eigen hrefBase.
 import Link from "next/link";
 import { Badge, EmptyState } from "@/components/ui/layout";
-import { formatDate, relativeDays } from "@/lib/dates";
+import { plannedState } from "@/lib/blocks";
+import { formatDate, relativeDays, startOfWeek, todayISO } from "@/lib/dates";
 import type { WorkoutListItem } from "@/lib/types";
 
 export function WorkoutList({
@@ -15,6 +16,7 @@ export function WorkoutList({
   emptyText?: string;
 }) {
   if (workouts.length === 0) return <EmptyState title={emptyText} />;
+  const today = todayISO();
 
   return (
     <ul className="divide-y divide-chalk/15 border-y border-chalk/15">
@@ -36,7 +38,7 @@ export function WorkoutList({
               </p>
             </div>
             <div className="flex shrink-0 flex-wrap justify-end gap-1">
-              {workout.status === "planned" && <Badge>Gepland</Badge>}
+              {workout.status === "planned" && <Badge>{plannedLabel(workout.date, today)}</Badge>}
               {workout.import_batch_id && <Badge>Import</Badge>}
               {workout.feedback_count > 0 && <Badge strong>Feedback</Badge>}
             </div>
@@ -48,4 +50,12 @@ export function WorkoutList({
       ))}
     </ul>
   );
+}
+
+/** Badge voor een geplande sessie: gemist, gepland (deze week) of op slot tot maandag. */
+function plannedLabel(date: string, today: string) {
+  const state = plannedState(date, today);
+  if (state === "missed") return "Gemist";
+  if (state === "open") return "Gepland";
+  return `Vanaf ${formatDate(startOfWeek(date), { weekday: "short", day: "numeric", month: "short" })}`;
 }

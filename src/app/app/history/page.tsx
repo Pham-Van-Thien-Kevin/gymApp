@@ -3,8 +3,10 @@
 // geplande sessies uit je sheet die je nog kan afwerken, en de export naar Excel.
 import type { Metadata } from "next";
 import { requireRole } from "@/lib/auth";
-import { getPlannedWorkouts, getWorkouts } from "@/lib/data";
-import { formatDate, relativeDays } from "@/lib/dates";
+import { getPlannedWorkouts, getWorkoutStatuses, getWorkouts } from "@/lib/data";
+import { summarizeMonths } from "@/lib/blocks";
+import { MonthOverview } from "@/components/month-overview";
+import { addDays, formatDate, relativeDays, todayISO } from "@/lib/dates";
 import { ButtonLink, buttonClasses } from "@/components/ui/button";
 import { EmptyState, PageHeader, Section } from "@/components/ui/layout";
 import { WorkoutList } from "@/components/workout-list";
@@ -17,10 +19,14 @@ export default async function HistoryPage({ searchParams }: PageProps<"/app/hist
   const profile = await requireRole("member");
   const { pagina } = await searchParams;
   const page = Math.max(1, Number(pagina) || 1);
-  const [{ items, total }, planned] = await Promise.all([
+  const today = todayISO();
+  const [{ items, total }, planned, statuses] = await Promise.all([
     getWorkouts(profile.id, { limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE }),
-    getPlannedWorkouts(profile.id),
+    getPlannedWorkouts(profile.id, today),
+    // Twee maanden terug is genoeg voor "deze maand en de vorige".
+    getWorkoutStatuses(profile.id, addDays(today, -70)),
   ]);
+  const months = summarizeMonths(statuses, today).slice(0, 2);
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
@@ -37,9 +43,14 @@ export default async function HistoryPage({ searchParams }: PageProps<"/app/hist
           )
         }
       />
+      {page === 1 && months.length > 0 && (
+        <Section title="Per maand">
+          <MonthOverview months={months} />
+        </Section>
+      )}
       {page === 1 && planned.total > 0 && (
         <Section title={`Nog af te werken (${planned.total})`}>
-          <p className="-mt-2 mb-4 text-sm text-chalk/60">Gepland in je sheet, nog niet gelogd. Werk een sessie af in de logger.</p>
+          <p className="-mt-2 mb-4 text-sm text-chalk/60">Gepland voor deze week, nog niet gelogd. Een gemiste sessie uit een voorbije week kan je niet meer inhalen; de volgende week gaat maandag om 0:00 open.</p>
           <ul className="divide-y divide-chalk/15 border-y border-chalk/15">
             {planned.items.map((workout) => (
               <li key={workout.id} className="flex min-h-16 items-center gap-4 py-3 sm:px-2">
@@ -61,7 +72,7 @@ export default async function HistoryPage({ searchParams }: PageProps<"/app/hist
           </ul>
           {planned.total > planned.items.length && (
             <p className="mt-3 text-sm text-chalk/60">
-              Nog {planned.total - planned.items.length} geplande sessies verder in de historiek.
+              Nog {planned.total - planned.items.length} geplande sessies deze week.
             </p>
           )}
         </Section>

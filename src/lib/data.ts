@@ -4,6 +4,7 @@ import "server-only";
 // RLS in Postgres. Vraagt een trainer data van iemand die niet zijn cliënt is,
 // dan krijgt hij gewoon niets terug.
 import { createClient } from "@/lib/supabase/server";
+import { addDays, startOfWeek } from "@/lib/dates";
 import type { ExportData, ExportWorkout } from "@/lib/export";
 import { suggestFromTarget } from "@/lib/rpe";
 import { buildProgressSeries, pickReferenceE1rm } from "@/lib/stats";
@@ -22,6 +23,7 @@ import type {
   StrengthTest,
   WorkoutDetail,
   WorkoutListItem,
+  WorkoutStatus,
 } from "@/lib/types";
 
 /** Gooit een duidelijke fout zodat error.tsx die kan tonen. */
@@ -157,14 +159,19 @@ export async function getWorkouts(
   return { items, total: count ?? items.length };
 }
 
-/** Geplande (nog niet afgewerkte) trainingen, vroegste eerst. */
-export async function getPlannedWorkouts(memberId: string, limit = 8): Promise<{ items: WorkoutListItem[]; total: number }> {
+/**
+ * Geplande sessies die je nu kan afwerken: enkel die van DEZE week (vroegste
+ * eerst). Voorbije weken zijn gemist, latere weken nog op slot (zie plannedState).
+ */
+export async function getPlannedWorkouts(memberId: string, today: string, limit = 8): Promise<{ items: WorkoutListItem[]; total: number }> {
   const supabase = await createClient();
   const { data, error, count } = await supabase
     .from("workouts")
     .select("id, date, title, status, duration_minutes, import_batch_id, workout_exercises(count)", { count: "exact" })
     .eq("member_id", memberId)
     .eq("status", "planned")
+    .gte("date", startOfWeek(today))
+    .lt("date", addDays(startOfWeek(today), 7))
     .order("date")
     .limit(limit);
   if (error) fail("Geplande trainingen laden", error);
@@ -453,4 +460,12 @@ export async function getUnreadNotificationCount(): Promise<number> {
   const { count, error } = await supabase.from("notifications").select("id", { count: "exact", head: true }).is("read_at", null);
   // Een fout bij de bel mag nooit de hele pagina breken: dan gewoon 0.
   return error ? 0 : (count ?? 0);
+}
+
+/** Datum en status van je trainingen sinds een datum, voor het maandoverzicht (enkel deze twee kolommen). */
+export async function getWorkoutStatuses(memberId: string, since: string): Promise<{ date: string; status: WorkoutStatus }[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("workouts").select("date, status").eq("member_id", memberId).gte("date", since).order("date");
+  if (error) fail("Maandoverzicht laden", error);
+  return data;
 }
