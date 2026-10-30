@@ -53,6 +53,7 @@ export type BuildResult = { ok: true; payload: ImportPayload } | { ok: false; er
 
 function exerciseNotes(exercise: ParsedExercise) {
   const parts = [
+    exercise.suggestedLoad && `Voorgesteld gewicht: ${exercise.suggestedLoad} kg`,
     exercise.comment && `Opmerking: ${exercise.comment}`,
     exercise.notes,
     exercise.extraFrom !== null && `Extra oefening uit sessie ${exercise.extraFrom}`,

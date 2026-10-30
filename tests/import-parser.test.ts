@@ -306,3 +306,35 @@ describe("deellink", () => {
     expect(extractSheetId("https://example.com/spreadsheet")).toBeNull();
   });
 });
+
+describe("voorstel van de coach in de gewichtkolom", () => {
+  it("haalt het voorstel eruit en houdt het echte gewicht", async () => {
+    const { splitSuggestedLoad } = await import("@/lib/import/values");
+    expect(splitSuggestedLoad("suggested load 120-122,5")).toEqual({ value: null, suggestion: "120-122,5" });
+    expect(splitSuggestedLoad("(suggested load 140-145) 150")).toEqual({ value: "150", suggestion: "140-145" });
+    expect(splitSuggestedLoad("(suggested load 92,5-95) 97,5")).toEqual({ value: "97,5", suggestion: "92,5-95" });
+    expect(splitSuggestedLoad("(suggested load) 90")).toEqual({ value: "90", suggestion: null });
+    expect(splitSuggestedLoad("Suggested load: 100 kg")).toEqual({ value: null, suggestion: "100" });
+    expect(splitSuggestedLoad(80)).toEqual({ value: 80, suggestion: null });
+    expect(splitSuggestedLoad("20i")).toEqual({ value: "20i", suggestion: null });
+  });
+
+  it("een rij met enkel een voorstel is gepland, met voorstel en gewicht is ze gedaan", async () => {
+    const XLSX = await import("xlsx");
+    const { parseWorkbook } = await import("@/lib/import/parser");
+    const sheet = XLSX.utils.aoa_to_sheet([
+      [],
+      ["", "WEEK 1"],
+      ["", "SESSIE 1", "Maandag", "SETS", "REPS", "INTENSITEIT", "GEWICHT", "ECHTE RPE", "NOTITIES"],
+      ["", "Comp squat", null, 3, 3, "RPE 8", "suggested load 120-122,5"],
+      ["", "Deadlift", null, 1, 2, "RPE 8", "(suggested load 140-145) 150"],
+    ]);
+    const book = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(book, sheet, "OKT2026");
+    const parsed = parseWorkbook(XLSX.write(book, { type: "buffer", bookType: "xlsx" }));
+    const [squat, deadlift] = parsed.months[0].weeks[0].sessions[0].exercises;
+    expect(squat).toMatchObject({ performed: false, suggestedLoad: "120-122,5", sets: [] });
+    expect(deadlift).toMatchObject({ performed: true, suggestedLoad: "140-145" });
+    expect(deadlift.sets[0].weight).toBe(150);
+  });
+});

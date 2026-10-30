@@ -23,6 +23,7 @@ export type ParsedExercise = {
   name: string; // zonder haakjes
   optional: boolean;
   comment: string | null; // kolom "opmerking"
+  suggestedLoad: string | null; // voorstel van de coach uit de gewichtkolom, bv. "120-122,5"
   targetSets: number | null;
   targetReps: string | null;
   targetIntensity: string | null;

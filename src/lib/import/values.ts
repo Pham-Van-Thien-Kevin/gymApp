@@ -52,6 +52,22 @@ export function parseRpe(value: CellValue): { rpe: number | null; ok: boolean } 
  * Gewicht: getal, "102,5" of een bereik "85-80" (dan de eerste waarde, met
  * waarschuwing). Tekst zoals "Error" of "20i" → null, ook met waarschuwing.
  */
+/**
+ * De coach zet soms een voorstel in de gewichtkolom: "suggested load 120-122,5"
+ * (nog niet gedaan) of "(suggested load 140-145) 150" (voorstel + wat je echt
+ * deed). We halen het voorstel eruit; wat overblijft is het echte gewicht.
+ * Zonder voorstel blijft de cel ongewijzigd.
+ */
+const SUGGESTED_LOAD = /\(?\s*(?:sugg?este?d\s*load|voorgesteld(?:\s*gewicht)?|suggestie)\s*:?\s*([\d.,]+(?:\s*[-–]\s*[\d.,]+)?)?\s*(?:kg)?\s*\)?/i;
+
+export function splitSuggestedLoad(value: CellValue): { value: CellValue; suggestion: string | null } {
+  if (typeof value !== "string") return { value, suggestion: null };
+  const match = value.match(SUGGESTED_LOAD);
+  if (!match) return { value, suggestion: null };
+  const rest = value.replace(match[0], "").trim();
+  return { value: rest === "" ? null : rest, suggestion: match[1]?.replace(/\s+/g, "") ?? null };
+}
+
 export function parseWeight(value: CellValue): { weight: number | null; warning: string | null } {
   if (isBlank(value)) return { weight: null, warning: null };
   const number = parseNumber(value);

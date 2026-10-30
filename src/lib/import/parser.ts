@@ -29,6 +29,7 @@ import {
   parseRpe,
   parseWeekday,
   parseWeight,
+  splitSuggestedLoad,
 } from "./values";
 
 // --- Werkblad als raster ----------------------------------------------------
@@ -181,14 +182,16 @@ function parseExerciseRow(grid: Grid, r: number, cols: Columns, warn: (cell: str
   const reps = parseReps(rawReps);
   if (!reps.ok) warn(address(r, cols.reps!), `Reps "${cellText(rawReps)}" niet herkend.`);
 
-  const weight = parseWeight(rawWeight);
+  // Een voorstel van de coach ("suggested load 120-122,5") is geen uitgevoerde set.
+  const { value: weightCell, suggestion: suggestedLoad } = splitSuggestedLoad(rawWeight);
+  const weight = parseWeight(weightCell);
   if (weight.warning) warn(address(r, cols.weight!), `${name}: ${weight.warning}`);
 
   const rpe = parseRpe(rawRpe);
   if (!rpe.ok) warn(address(r, cols.rpe!), `${name}: echte RPE "${cellText(rawRpe)}" niet herkend.`);
 
   // Regel uit de opdracht: geen gewicht én geen echte RPE = niet uitgevoerd.
-  const performed = !isBlank(rawWeight) || !isBlank(rawRpe);
+  const performed = !isBlank(weightCell) || !isBlank(rawRpe);
 
   let setCount = targetSets ?? 0;
   if (performed && setCount === 0) {
@@ -212,6 +215,7 @@ function parseExerciseRow(grid: Grid, r: number, cols: Columns, warn: (cell: str
     targetIntensity: intensity,
     actualRpe: rpe.rpe,
     notes: isBlank(rawNotes) ? null : cellText(rawNotes),
+    suggestedLoad,
     performed,
     sets: performed
       ? Array.from({ length: setCount }, (_, i) => ({
