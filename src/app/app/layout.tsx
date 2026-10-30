@@ -1,9 +1,14 @@
 // Server Component: controleert de rol op de server vóór er iets gerenderd wordt.
 // De map heet "app" omdat de URL /app is (src/app/ is de App Router-map zelf).
+import type { Metadata } from "next";
 import { requireRole } from "@/lib/auth";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { APP_NAME } from "@/lib/config";
 import { MemberNav } from "./member-nav";
+
+// Persoonlijke pagina's: zoekmachines mogen ze niet indexeren (ook al zouden ze
+// zonder login enkel de loginpagina zien). robots.ts sluit ze ook uit.
+export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 export default async function MemberLayout({ children }: LayoutProps<"/app">) {
   // Tweede controle naast de proxy: is dit écht een member? Zo niet, dan

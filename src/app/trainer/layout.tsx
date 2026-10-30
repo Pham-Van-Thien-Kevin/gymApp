@@ -1,10 +1,15 @@
 // Server Component: rolcontrole op de server + de vaste structuur van het
 // trainerdashboard (zijbalk op desktop, balk bovenaan op kleinere schermen).
+import type { Metadata } from "next";
 import { requireRole } from "@/lib/auth";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { APP_NAME } from "@/lib/config";
 import { TrainerNav } from "./trainer-nav";
 import { signOut } from "@/app/(auth)/actions";
+
+// Persoonlijke pagina's: zoekmachines mogen ze niet indexeren (ook al zouden ze
+// zonder login enkel de loginpagina zien). robots.ts sluit ze ook uit.
+export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 export default async function TrainerLayout({ children }: LayoutProps<"/trainer">) {
   const profile = await requireRole("trainer");
