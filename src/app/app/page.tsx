@@ -38,7 +38,7 @@ export default async function MemberHome() {
       <PageHeader eyebrow={formatDate(today, { weekday: "long", day: "numeric", month: "long" })} title={`Hoi ${firstName}`} />
 
       {!profile.trainer_id && (
-        <Card className="mb-8 border-lime">
+        <Card className="mb-8 border-accent">
           <p className="font-semibold">Nog niet gekoppeld aan een trainer</p>
           <p className="mt-1 mb-4 text-chalk/70">Vraag je trainer om de uitnodigingscode en vul die in bij je profiel.</p>
           <ButtonLink href="/app/profile" variant="secondary">
@@ -114,7 +114,7 @@ export default async function MemberHome() {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <Stat label="Streak" value={streak} hint={streak === 1 ? "week op rij" : "weken op rij"} />
           <Stat label="Deze week" value={thisWeek} hint={thisWeek === 1 ? "training" : "trainingen"} />
-          <div className="col-span-2 border border-chalk/15 p-4 sm:col-span-1">
+          <div className="col-span-2 rounded-xl border border-chalk/15 p-4 sm:col-span-1">
             <p className="text-sm text-chalk/60">Check-in</p>
             {checkinThisWeek ? (
               <>

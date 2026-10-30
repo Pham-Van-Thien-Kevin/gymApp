@@ -38,7 +38,7 @@ export function ImportPreviewView({ preview, choices, onChange }: Props) {
 
   return (
     <div className="flex flex-col gap-8">
-      <section aria-labelledby="preview-title" className="border border-chalk/30 p-5">
+      <section aria-labelledby="preview-title" className="rounded-xl border border-chalk/30 p-5">
         <h2 id="preview-title" className="text-xl font-bold">
           Voorbeeld van {preview.label}
         </h2>
@@ -76,22 +76,22 @@ export function ImportPreviewView({ preview, choices, onChange }: Props) {
           <label className="mb-3 flex min-h-11 items-center gap-3">
             <input
               type="checkbox"
-              className="size-5 accent-lime"
+              className="size-5 accent-accent"
               checked={choices.includeInfo}
               onChange={(event) => onChange({ ...choices, includeInfo: event.target.checked })}
             />
             Maxima per blok en de oefeningenlijst importeren
           </label>
           <dl className="grid gap-3 text-sm sm:grid-cols-3">
-            <div className="border border-chalk/15 p-3">
+            <div className="rounded-xl border border-chalk/15 p-3">
               <dt className="text-chalk/60">Startdatum</dt>
               <dd className="font-semibold">{workbook.info.startDate ? formatDate(workbook.info.startDate, { day: "numeric", month: "long", year: "numeric" }) : "–"}</dd>
             </div>
-            <div className="border border-chalk/15 p-3">
+            <div className="rounded-xl border border-chalk/15 p-3">
               <dt className="text-chalk/60">Oefeningen</dt>
               <dd className="font-semibold">{workbook.info.exercises.length} in de lijst</dd>
             </div>
-            <div className="border border-chalk/15 p-3">
+            <div className="rounded-xl border border-chalk/15 p-3">
               <dt className="text-chalk/60">Maxima</dt>
               <dd className="font-semibold">
                 {workbook.info.strengthTests.map((t) => `${t.label}: ${formatNumber((t.squat ?? 0) + (t.bench ?? 0) + (t.deadlift ?? 0))} kg`).join(" · ") || "–"}
@@ -200,11 +200,11 @@ function MonthPreview({
   onChange: (tab: { include: boolean; week1: string }) => void;
 }) {
   return (
-    <section aria-labelledby={`month-${month.tab}`} className={cn("border border-chalk/15", !include && "opacity-60")}>
+    <section aria-labelledby={`month-${month.tab}`} className={cn("overflow-hidden rounded-xl border border-chalk/15", !include && "opacity-60")}>
       <div className="flex flex-wrap items-end justify-between gap-4 border-b border-chalk/15 p-4">
         <div>
           <label className="flex min-h-11 items-center gap-3">
-            <input type="checkbox" className="size-5 accent-lime" checked={include} onChange={(event) => onChange({ include: event.target.checked, week1 })} />
+            <input type="checkbox" className="size-5 accent-accent" checked={include} onChange={(event) => onChange({ include: event.target.checked, week1 })} />
             <h2 id={`month-${month.tab}`} className="text-xl font-bold">
               {month.tab}
             </h2>

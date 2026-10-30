@@ -12,7 +12,7 @@ export function RatingBadge({ value, label }: { value: Rating | null; label?: st
     <span
       className={cn(
         "inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-semibold",
-        value === "BAD" ? "bg-lime text-ink" : "border border-chalk/40",
+        value === "BAD" ? "bg-lime text-on-lime" : "border border-chalk/40",
       )}
     >
       <span aria-hidden="true">{symbols[value]}</span>
@@ -27,11 +27,11 @@ export function RatingField({ name, legend, defaultValue }: { name: string; lege
   return (
     <fieldset>
       <legend className="label">{legend}</legend>
-      <div className="grid grid-cols-3 border border-chalk/30">
+      <div className="grid overflow-hidden rounded-lg grid-cols-3 border border-chalk/30">
         {RATINGS.map((rating) => (
           <label
             key={rating}
-            className="flex min-h-12 cursor-pointer items-center justify-center gap-1.5 text-sm font-semibold text-chalk/80 hover:bg-chalk/10 has-[:checked]:bg-lime has-[:checked]:text-ink has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-lime"
+            className="flex min-h-12 cursor-pointer items-center justify-center gap-1.5 text-sm font-semibold text-chalk/80 hover:bg-chalk/10 has-[:checked]:bg-lime has-[:checked]:text-on-lime has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-lime"
           >
             <input type="radio" name={name} value={rating} defaultChecked={defaultValue === rating} required className="sr-only" />
             <span aria-hidden="true">{symbols[rating]}</span>

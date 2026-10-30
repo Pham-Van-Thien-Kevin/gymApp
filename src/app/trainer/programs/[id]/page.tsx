@@ -228,7 +228,7 @@ function DayEditor({
           // duidelijk in plaats van een leeg keuzemenu te tonen.
           <p className="text-sm text-chalk/70">
             Je oefeningenbibliotheek is nog leeg.{" "}
-            <Link href="/trainer/exercises" className="font-semibold text-lime underline underline-offset-4">
+            <Link href="/trainer/exercises" className="font-semibold text-accent underline underline-offset-4">
               Voeg eerst oefeningen toe
             </Link>
             , daarna kan je ze hier inplannen.
@@ -311,7 +311,7 @@ function TargetFields({ idPrefix, row }: { idPrefix: string; row?: ProgramExerci
       </div>
       <Field label="Notitie (optioneel)" name="notes" id={`${idPrefix}-notes`} defaultValue={row?.notes ?? ""} maxLength={300} />
       <label className="flex min-h-11 items-center gap-3">
-        <input type="checkbox" name="optional" defaultChecked={row?.optional} className="size-5 accent-lime" />
+        <input type="checkbox" name="optional" defaultChecked={row?.optional} className="size-5 accent-accent" />
         Optionele oefening
       </label>
     </>

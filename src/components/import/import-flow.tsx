@@ -79,7 +79,7 @@ export function ImportFlow({
 
   if (summary) {
     return (
-      <div role="status" className="border-2 border-lime p-6">
+      <div role="status" className="border-2 border-accent p-6">
         <p className="text-sm font-semibold uppercase tracking-widest">✓ Import voltooid</p>
         <p className="mt-2 text-2xl font-bold">
           {summary.workouts} trainingen, {summary.sets} sets geïmporteerd
@@ -88,7 +88,7 @@ export function ImportFlow({
           {summary.checkins} check-ins · {summary.strength_tests} maxima · {summary.new_exercises} nieuwe oefeningen
         </p>
         <div className="mt-6 flex flex-wrap gap-2">
-          <Link href={historyHref} className="inline-flex min-h-12 items-center bg-lime px-5 font-semibold text-ink">
+          <Link href={historyHref} className="inline-flex min-h-12 items-center rounded-lg bg-lime px-5 font-semibold text-on-lime">
             Bekijk de trainingen
           </Link>
           <Button variant="ghost" onClick={reset}>
@@ -128,7 +128,7 @@ export function ImportFlow({
 
   return (
     <div className="flex flex-col gap-6">
-      <div role="radiogroup" aria-label="Bron" className="grid grid-cols-2 border border-chalk/30">
+      <div role="radiogroup" aria-label="Bron" className="grid overflow-hidden rounded-lg grid-cols-2 border border-chalk/30">
         {(["link", "upload"] as const).map((option) => (
           <button
             key={option}
@@ -136,7 +136,7 @@ export function ImportFlow({
             role="radio"
             aria-checked={mode === option}
             onClick={() => setMode(option)}
-            className={cn("min-h-12 font-semibold", mode === option ? "bg-lime text-ink" : "text-chalk/80 hover:bg-chalk/10")}
+            className={cn("min-h-12 font-semibold", mode === option ? "bg-lime text-on-lime" : "text-chalk/80 hover:bg-chalk/10")}
           >
             {option === "link" ? "Deellink plakken" : "Bestand uploaden"}
           </button>
@@ -169,7 +169,7 @@ export function ImportFlow({
             id="sheet-file"
             type="file"
             accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            className="field file:mr-4 file:border-0 file:bg-lime file:px-3 file:py-1 file:font-semibold file:text-ink"
+            className="field file:mr-4 file:border-0 file:bg-lime file:px-3 file:py-1 file:font-semibold file:text-on-lime"
             onChange={(event) => setFile(event.target.files?.[0] ?? null)}
           />
           <p className="mt-1 text-sm text-chalk/60">In Google Sheets: Bestand → Downloaden → Microsoft Excel (.xlsx).</p>

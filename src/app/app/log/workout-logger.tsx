@@ -289,7 +289,7 @@ export function WorkoutLogger(props: Props) {
   return (
     <div>
       {restorable && (
-        <div role="status" className="mb-6 border border-lime p-4">
+        <div role="status" className="mb-6 rounded-xl border border-accent p-4">
           <p className="font-semibold">Niet-opgeslagen training gevonden</p>
           <p className="mt-1 text-sm text-chalk/70">
             {restorable.title} · {formatDate(restorable.date)} · {restorable.exercises.length} oefeningen
@@ -349,7 +349,7 @@ export function WorkoutLogger(props: Props) {
           const nextSetWeight = parseDecimal(exercise.sets.find((set) => !set.done && set.weight.trim())?.weight ?? "");
           const plateWeight = nextSetWeight ?? suggestion?.weight ?? null;
           return (
-            <li key={exercise.key} className="border border-chalk/15">
+            <li key={exercise.key} className="overflow-hidden rounded-xl border border-chalk/15">
               <div className="flex items-start justify-between gap-3 border-b border-chalk/15 p-4">
                 <div className="min-w-0">
                   <h2 className="text-xl font-bold">
@@ -425,7 +425,7 @@ export function WorkoutLogger(props: Props) {
                       <th scope="row" className="py-2 pl-4 font-semibold tabular-nums">
                         {setIndex + 1}
                         {isPr(set) && (
-                          <span className="ml-1 text-[10px] font-bold text-lime" title="Persoonlijk record">
+                          <span className="ml-1 text-[10px] font-bold text-accent" title="Persoonlijk record">
                             PR
                           </span>
                         )}
@@ -467,8 +467,8 @@ export function WorkoutLogger(props: Props) {
                           aria-label={`${exercise.name} set ${setIndex + 1} ${set.done ? "niet meer afvinken" : "afvinken"}`}
                           onClick={() => toggleDone(exercise, set)}
                           className={cn(
-                            "inline-flex size-11 items-center justify-center border text-lg font-bold",
-                            set.done ? "border-lime bg-lime text-ink" : "border-chalk/40 hover:border-chalk",
+                            "inline-flex size-11 items-center justify-center rounded-lg border text-lg font-bold",
+                            set.done ? "border-lime bg-lime text-on-lime" : "border-chalk/40 hover:border-chalk",
                           )}
                         >
                           ✓
@@ -637,7 +637,7 @@ function AddExercise({
   const byCategory = groupByCategory(library);
 
   return (
-    <section className="mt-6 border border-dashed border-chalk/30 p-4" aria-labelledby="add-exercise-title">
+    <section className="mt-6 rounded-xl border border-dashed border-chalk/30 p-4" aria-labelledby="add-exercise-title">
       <h2 id="add-exercise-title" className="mb-3 font-semibold">
         Oefening toevoegen
       </h2>

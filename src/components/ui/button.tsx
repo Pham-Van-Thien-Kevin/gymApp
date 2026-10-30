@@ -8,11 +8,11 @@ type Variant = "primary" | "secondary" | "ghost";
 type Size = "md" | "lg" | "sm";
 
 const base =
-  "inline-flex items-center justify-center gap-2 font-semibold tracking-tight transition-colors " +
+  "inline-flex items-center justify-center gap-2 rounded-lg font-semibold tracking-tight transition-colors " +
   "disabled:cursor-not-allowed disabled:opacity-40 select-none";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-lime text-ink hover:bg-lime/85",
+  primary: "bg-lime text-on-lime hover:bg-lime/85",
   secondary: "border border-chalk/40 text-chalk hover:border-chalk hover:bg-chalk/10",
   ghost: "text-chalk/75 hover:text-chalk hover:bg-chalk/10",
 };

@@ -23,7 +23,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
       <LoginForm next={next} initialError={errors[errorKey]} />
       <p className="mt-8 text-chalk/70">
         Nog geen account?{" "}
-        <Link href="/register" className="font-semibold text-lime underline underline-offset-4">
+        <Link href="/register" className="font-semibold text-accent underline underline-offset-4">
           Registreer
         </Link>
       </p>

@@ -6,8 +6,9 @@
 // gelogd, dan is dat ook wat je eerst ziet.
 import { getLoggedExercises, getSetLog, getSetLogs } from "@/lib/data";
 import { BIG_THREE, BIG_THREE_VIEW, bigThreeLift, type BigThreeLift } from "@/lib/exercises";
-import { buildProgressSeries, combineByDate, formatKg } from "@/lib/stats";
-import { formatDate } from "@/lib/dates";
+import { roundToIncrement } from "@/lib/rpe";
+import { buildProgressSeries, combineByDate, formatKg, formatLoad, pickReferenceE1rm, type ProgressPoint } from "@/lib/stats";
+import { formatDate, todayISO } from "@/lib/dates";
 import { EmptyState, Stat } from "@/components/ui/layout";
 import { TrendChart, type TrendSeries } from "@/components/charts/trend-chart";
 import { ExercisePicker } from "./exercise-picker";
@@ -42,40 +43,57 @@ export async function ProgressPanel({ memberId, exerciseId }: { memberId: string
   );
 }
 
+/**
+ * "Wat kan ik nu?" Hetzelfde geschatte 1RM als de voorstellen in de logger
+ * (pickReferenceE1rm). Is je laatste training te lang geleden, dan het meest
+ * recente punt, met de datum erbij zodat je ziet hoe oud de schatting is.
+ */
+function currentEstimate(series: ProgressPoint[], today: string) {
+  const reference = pickReferenceE1rm(series, today) ?? series.at(-1);
+  return reference ? series.find((point) => point.date === reference.date) ?? null : null;
+}
+
+const estimateHint = (point: ProgressPoint) => `Uit ${point.bestSet} (${formatDate(point.date)})`;
+
 async function BigThreeChart({ memberId, options }: { memberId: string; options: Option[] }) {
   // Een sporter kan twee oefeningen "Squat" hebben (standaardbibliotheek én
   // import): alle ids per lift samen, zodat de geschiedenis niet in twee valt.
   const idsByLift = Object.fromEntries(BIG_THREE.map((lift) => [lift, options.filter((o) => bigThreeLift(o.name) === lift).map((o) => o.id)])) as Record<BigThreeLift, string[]>;
   const rows = await getSetLogs(memberId, Object.values(idsByLift).flat());
+  const today = todayISO();
 
   const perLift = Object.fromEntries(
-    BIG_THREE.map((lift) => {
-      const liftRows = rows.filter((row) => idsByLift[lift].includes(row.exercise_id));
-      return [lift, buildProgressSeries(liftRows).map((point) => ({ date: point.date, value: point.e1rm }))];
-    }),
-  ) as Record<BigThreeLift, { date: string; value: number }[]>;
+    BIG_THREE.map((lift) => [lift, buildProgressSeries(rows.filter((row) => idsByLift[lift].includes(row.exercise_id)))]),
+  ) as Record<BigThreeLift, ProgressPoint[]>;
   const lifts = BIG_THREE.filter((lift) => perLift[lift].length > 0);
 
   if (lifts.length === 0) {
     return <EmptyState title="Geen sets met gewicht">Voor squat, bench en deadlift zijn nog geen sets met een gewicht gelogd.</EmptyState>;
   }
 
-  const best = (lift: BigThreeLift) => Math.max(0, ...perLift[lift].map((point) => point.value));
-  const total = lifts.reduce((sum, lift) => sum + best(lift), 0);
+  const estimates = Object.fromEntries(lifts.map((lift) => [lift, currentEstimate(perLift[lift], today)]));
+  // Totaal van de afgeronde maxima, zodat de som klopt met wat erboven staat.
+  const total = lifts.reduce((sum, lift) => sum + roundToIncrement(estimates[lift]?.e1rm ?? 0), 0);
 
   return (
     <>
+      <p className="-mb-2 text-sm text-chalk/60">Geschat 1RM, afgerond op 2,5 kg</p>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {BIG_THREE.map((lift) => (
-          <Stat key={lift} label={LIFT_LABEL[lift]} value={perLift[lift].length ? formatKg(best(lift)) : "–"} hint="Beste geschat 1RM" />
-        ))}
-        <Stat label="Total" value={formatKg(total)} hint={lifts.length < 3 ? "Niet alle drie gelogd" : "Som van de beste e1RM's"} />
+        {BIG_THREE.map((lift) => {
+          const estimate = estimates[lift];
+          return <Stat key={lift} label={LIFT_LABEL[lift]} value={formatLoad(estimate?.e1rm)} hint={estimate ? estimateHint(estimate) : "Nog niet gelogd"} />;
+        })}
+        <Stat label="Total" value={formatKg(total)} hint={lifts.length < 3 ? "Niet alle drie gelogd" : "Som van de drie"} />
       </div>
       <TrendChart
-        title="Geschat 1RM squat, bench en deadlift"
-        data={combineByDate(perLift)}
-        series={lifts.map((lift) => ({ key: lift, label: LIFT_LABEL[lift], ...LIFT_STYLE[lift] }))}
+        title="Zwaarste set per training: squat, bench en deadlift"
+        // Per lift de zwaarste set die dag: wat je echt deed, geen schatting.
+        data={combineByDate(
+          Object.fromEntries(lifts.map((lift) => [lift, perLift[lift].map((p) => ({ date: p.date, value: p.heaviest, detail: p.heaviestSet }))])),
+        )}
+        series={lifts.map((lift) => ({ key: lift, label: LIFT_LABEL[lift], detailKey: `${lift}Detail`, ...LIFT_STYLE[lift] }))}
       />
+      <p className="text-sm text-chalk/60">De grafiek toont je zwaarste set per training. Tik op een punt voor reps en RPE.</p>
     </>
   );
 }
@@ -86,21 +104,18 @@ async function ExerciseChart({ memberId, exercise }: { memberId: string; exercis
     return <EmptyState title="Geen sets met gewicht">Voor {exercise.name} zijn nog geen sets met een gewicht gelogd.</EmptyState>;
   }
   const heaviest = series.reduce((best, point) => (point.heaviest > best.heaviest ? point : best));
-  const bestE1rm = series.reduce((best, point) => (point.e1rm > best.e1rm ? point : best));
+  const estimate = currentEstimate(series, todayISO());
 
   return (
     <>
       <div className="grid grid-cols-2 gap-3">
-        <Stat label="Zwaarste set" value={formatKg(heaviest.heaviest)} hint={formatDate(heaviest.date, { day: "numeric", month: "short", year: "numeric" })} />
-        <Stat label="Beste geschat 1RM" value={formatKg(bestE1rm.e1rm)} hint={bestE1rm.bestSet} />
+        <Stat label="Geschat 1RM" value={formatLoad(estimate?.e1rm)} hint={estimate ? estimateHint(estimate) : undefined} />
+        <Stat label="Zwaarste set ooit" value={formatKg(heaviest.heaviest)} hint={`${heaviest.heaviestSet} (${formatDate(heaviest.date)})`} />
       </div>
       <TrendChart
-        title={`Progressie ${exercise.name}`}
-        data={series.map((point) => ({ date: point.date, heaviest: point.heaviest, e1rm: point.e1rm, detail: point.bestSet }))}
-        series={[
-          { key: "heaviest", label: "Zwaarste set" },
-          { key: "e1rm", label: "Geschat 1RM", dash: "6 4", opacity: 0.6 },
-        ]}
+        title={`Zwaarste set per training: ${exercise.name}`}
+        data={series.map((point) => ({ date: point.date, heaviest: point.heaviest, detail: point.heaviestSet }))}
+        series={[{ key: "heaviest", label: "Zwaarste set", detailKey: "detail" }]}
       />
     </>
   );

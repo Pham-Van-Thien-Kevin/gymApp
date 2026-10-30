@@ -49,7 +49,7 @@ export function WorkoutDetail({
         <Section title={feedbackTitle}>
           <ul className="flex flex-col gap-3">
             {workout.workout_feedback.map((feedback) => (
-              <li key={feedback.id} className="border-l-4 border-lime bg-chalk/5 p-4">
+              <li key={feedback.id} className="rounded-r-xl border-l-4 border-accent bg-chalk/5 p-4">
                 <p className="whitespace-pre-wrap">{feedback.message}</p>
                 <div className="mt-2 flex items-center justify-between gap-2 text-sm text-chalk/60">
                   <p>
@@ -155,7 +155,7 @@ export function WorkoutDetail({
 
 function SmallStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="border border-chalk/15 p-3">
+    <div className="rounded-xl border border-chalk/15 p-3">
       <p className="text-xs text-chalk/60">{label}</p>
       <p className="mt-0.5 text-xl font-bold tabular-nums">{value}</p>
     </div>

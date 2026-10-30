@@ -6,24 +6,29 @@
  * Elke variabele in @theme wordt (1) een CSS-variabele op :root en (2) een
  * Tailwind-utility. --color-chalk geeft dus `text-chalk`, `border-chalk/15`, ...
  *
- * Rolverdeling:
- *  - ink   = achtergrond
- *  - chalk = gewone tekst en 1px-lijnen (gebroken wit, zoals magnesium in de gym)
- *  - lime  = enkel ACCENT: primaire knoppen, actieve tab, markeringen, focus, grafieklijnen
+ * Rolverdeling (de namen beschrijven een ROL, de waarde hangt af van het thema):
+ *  - ink     = achtergrond
+ *  - chalk   = gewone tekst en 1px-lijnen
+ *  - lime    = vulkleur: primaire knoppen, actieve tab. Altijd felgroen.
+ *  - on-lime = tekst óp lime. Altijd donker, ook in light mode.
+ *  - accent  = accent als tekst, rand, focusring of grafieklijn. Lime in dark
+ *              mode; in light mode donker olijfgroen, want lime op wit is
+ *              onleesbaar (contrast 1,1:1 tegenover 5,7:1).
  * Varianten maak je met opacity (`text-chalk/60`), nooit met een extra kleur.
  *
  * Uitzondering: de grafiek met squat, bench en deadlift samen heeft drie
- * datakleuren nodig. Die (--color-lift-*) gebruik je enkel voor grafieklijnen,
- * nooit voor tekst of knoppen. Ze zijn getest op de ink-achtergrond: even
- * helder (zodat geen enkele lift opvalt) en ook voor kleurenblinden te onderscheiden.
+ * datakleuren nodig (--color-lift-*), enkel voor grafieklijnen. Per thema
+ * getest: even helder en ook voor kleurenblinden te onderscheiden.
  */
 @theme {
-  /* Wis het standaardpalet: alleen onze drie kleuren bestaan nog. Een class als
+  /* Wis het standaardpalet: alleen onze eigen kleuren bestaan nog. Een class als
      `bg-red-500` doet dan gewoon niets, zo kan er geen andere kleur insluipen. */
   --color-*: initial;
   --color-ink: #0f0f0f;
   --color-chalk: #ecece4;
   --color-lime: #d7ff3a;
+  --color-on-lime: #0f0f0f;
+  --color-accent: #d7ff3a;
 
   /* Geen schaduwen in dit design. */
   --shadow-*: initial;
@@ -40,6 +45,33 @@
   --color-lift-deadlift: #e5644a;
 }
 
+/*
+ * Light mode. Standaard volgen we het systeem (prefers-color-scheme); kies je
+ * zelf met de themaknop, dan zet een script data-theme op <html> (zie
+ * src/app/layout.tsx). Omdat alle utilities var(--color-…) gebruiken, volstaat
+ * het om enkel de variabelen te wisselen.
+ */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --color-ink: #f6f6f1;
+    --color-chalk: #141414;
+    --color-accent: #4d6b00;
+    --color-lift-squat: #5f7a00;
+    --color-lift-bench: #1f78c8;
+    --color-lift-deadlift: #d0502f;
+  }
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --color-ink: #f6f6f1;
+  --color-chalk: #141414;
+  --color-accent: #4d6b00;
+  --color-lift-squat: #5f7a00;
+  --color-lift-bench: #1f78c8;
+  --color-lift-deadlift: #d0502f;
+}
+
 /* `inline` omdat --font-space-grotesk pas door next/font op <html> gezet wordt. */
 @theme inline {
   --font-sans: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
@@ -47,7 +79,7 @@
 
 @layer base {
   html {
-    color-scheme: dark;
+    color-scheme: dark; /* overschreven in light mode, zie hierboven */
     background-color: var(--color-ink);
     color: var(--color-chalk);
   }
@@ -61,13 +93,13 @@
   /* Zichtbare focus voor toetsenbordgebruikers (WCAG 2.4.7). Met offset blijft
      de ring ook zichtbaar rond een lime knop. */
   :focus-visible {
-    outline: 2px solid var(--color-lime);
+    outline: 2px solid var(--color-accent);
     outline-offset: 3px;
   }
 
   ::selection {
     background-color: var(--color-lime);
-    color: var(--color-ink);
+    color: var(--color-on-lime);
   }
 
   input,
@@ -100,9 +132,9 @@
 @layer components {
   /* Eén stijl voor alle formuliervelden, zodat elke pagina er hetzelfde uitziet. */
   .field {
-    @apply block min-h-12 w-full border border-chalk/25 px-3 py-2 text-base outline-none transition-colors;
-    /* Het veld waarin je typt krijgt een lime rand: het enige accent in een formulier. */
-    @apply hover:border-chalk/50 focus-visible:border-lime;
+    @apply block min-h-12 w-full rounded-lg border border-chalk/25 px-3 py-2 text-base outline-none transition-colors;
+    /* Het veld waarin je typt krijgt een accentrand: het enige accent in een formulier. */
+    @apply hover:border-chalk/50 focus-visible:border-accent;
   }
   .label {
     @apply mb-1 block text-sm font-medium text-chalk/70;

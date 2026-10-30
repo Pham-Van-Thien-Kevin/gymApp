@@ -27,8 +27,8 @@ export function TrainerNav() {
               href={item.href}
               aria-current={isActive(item.href) ? "page" : undefined}
               className={cn(
-                "flex min-h-11 items-center px-3 font-medium whitespace-nowrap",
-                isActive(item.href) ? "bg-lime text-ink" : "text-chalk/70 hover:bg-chalk/10 hover:text-chalk",
+                "flex min-h-11 items-center rounded-lg px-3 font-medium whitespace-nowrap",
+                isActive(item.href) ? "bg-lime text-on-lime" : "text-chalk/70 hover:bg-chalk/10 hover:text-chalk",
               )}
             >
               {item.label}

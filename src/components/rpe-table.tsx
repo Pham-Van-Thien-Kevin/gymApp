@@ -10,7 +10,7 @@ const REPS = Array.from({ length: 12 }, (_, i) => i + 1);
 
 export function RpeTable() {
   return (
-    <details className="border border-chalk/15">
+    <details className="overflow-hidden rounded-xl border border-chalk/15">
       <summary className="flex min-h-12 cursor-pointer items-center px-4 font-semibold hover:bg-chalk/5">
         RPE-tabel: % van je 1RM
       </summary>

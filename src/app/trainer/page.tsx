@@ -90,7 +90,7 @@ export default async function TrainerOverview() {
                 <li key={client.member_id}>
                   <Link
                     href={`/trainer/clients/${client.member_id}`}
-                    className={flags.needsAttention ? "block border-2 border-lime p-4" : "block border border-chalk/15 p-4"}
+                    className={flags.needsAttention ? "block rounded-xl border-2 border-accent p-4" : "block rounded-xl border border-chalk/15 p-4"}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-lg font-semibold">{client.full_name}</p>

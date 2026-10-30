@@ -42,8 +42,8 @@ export function MemberNav({ variant }: { variant: "top" | "bottom" }) {
                 href={item.href}
                 aria-current={isActive(pathname, item.href) ? "page" : undefined}
                 className={cn(
-                  "flex min-h-10 items-center px-3 text-sm font-medium",
-                  isActive(pathname, item.href) ? "bg-lime text-ink" : "text-chalk/70 hover:text-chalk",
+                  "flex min-h-10 items-center rounded-lg px-3 text-sm font-medium",
+                  isActive(pathname, item.href) ? "bg-lime text-on-lime" : "text-chalk/70 hover:text-chalk",
                 )}
               >
                 {item.label}
@@ -55,8 +55,8 @@ export function MemberNav({ variant }: { variant: "top" | "bottom" }) {
               type="button"
               popoverTarget="member-more-top"
               className={cn(
-                "flex min-h-10 items-center gap-1 px-3 text-sm font-medium",
-                moreActive ? "bg-lime text-ink" : "text-chalk/70 hover:text-chalk",
+                "flex min-h-10 items-center gap-1 rounded-lg px-3 text-sm font-medium",
+                moreActive ? "bg-lime text-on-lime" : "text-chalk/70 hover:text-chalk",
               )}
             >
               Meer <span aria-hidden="true">▾</span>
@@ -67,7 +67,7 @@ export function MemberNav({ variant }: { variant: "top" | "bottom" }) {
         <MoreMenu
           id="member-more-top"
           pathname={pathname}
-          className="fixed top-14 right-[max(1rem,calc((100vw-48rem)/2+1rem))] bottom-auto left-auto m-0 w-60 border border-chalk/30 bg-ink p-2 text-chalk"
+          className="fixed top-14 right-[max(1rem,calc((100vw-48rem)/2+1rem))] bottom-auto left-auto m-0 w-60 rounded-xl border border-chalk/30 bg-ink p-2 text-chalk"
           itemClassName="min-h-11 px-3 text-base"
         />
       </nav>
@@ -86,11 +86,11 @@ export function MemberNav({ variant }: { variant: "top" | "bottom" }) {
               aria-current={isActive(pathname, item.href) ? "page" : undefined}
               className={cn(
                 "flex min-h-16 flex-col items-center justify-center text-xs font-semibold",
-                item.href === "/app/log" && "m-1.5 min-h-13 bg-lime text-ink",
-                item.href !== "/app/log" && (isActive(pathname, item.href) ? "text-lime" : "text-chalk/60"),
+                item.href === "/app/log" && "m-1.5 min-h-13 rounded-xl bg-lime text-on-lime",
+                item.href !== "/app/log" && (isActive(pathname, item.href) ? "text-accent" : "text-chalk/60"),
               )}
             >
-              <span aria-hidden="true" className={cn("mb-1 h-0.5 w-5", isActive(pathname, item.href) && item.href !== "/app/log" ? "bg-lime" : "bg-transparent")} />
+              <span aria-hidden="true" className={cn("mb-1 h-0.5 w-5", isActive(pathname, item.href) && item.href !== "/app/log" ? "bg-accent" : "bg-transparent")} />
               {item.label}
             </Link>
           </li>
@@ -99,9 +99,9 @@ export function MemberNav({ variant }: { variant: "top" | "bottom" }) {
           <button
             type="button"
             popoverTarget="member-more"
-            className={cn("flex min-h-16 w-full flex-col items-center justify-center text-xs font-semibold", moreActive ? "text-lime" : "text-chalk/60")}
+            className={cn("flex min-h-16 w-full flex-col items-center justify-center text-xs font-semibold", moreActive ? "text-accent" : "text-chalk/60")}
           >
-            <span aria-hidden="true" className={cn("mb-1 h-0.5 w-5", moreActive ? "bg-lime" : "bg-transparent")} />
+            <span aria-hidden="true" className={cn("mb-1 h-0.5 w-5", moreActive ? "bg-accent" : "bg-transparent")} />
             Meer
           </button>
         </li>
@@ -109,7 +109,7 @@ export function MemberNav({ variant }: { variant: "top" | "bottom" }) {
       <MoreMenu
         id="member-more"
         pathname={pathname}
-        className="fixed inset-x-0 top-auto bottom-[calc(4rem+env(safe-area-inset-bottom))] m-0 w-full border-t border-chalk/30 bg-ink p-2 text-chalk"
+        className="fixed inset-x-0 top-auto bottom-[calc(4rem+env(safe-area-inset-bottom))] m-0 w-full rounded-t-xl border-t border-chalk/30 bg-ink p-2 text-chalk"
         itemClassName="min-h-14 px-4 text-lg"
       />
     </nav>
@@ -131,9 +131,9 @@ function MoreMenu({ id, pathname, className, itemClassName }: { id: string; path
               aria-current={isActive(pathname, item.href) ? "page" : undefined}
               onClick={() => document.getElementById(id)?.hidePopover()}
               className={cn(
-                "flex items-center font-semibold",
+                "flex items-center rounded-lg font-semibold",
                 itemClassName,
-                isActive(pathname, item.href) ? "bg-lime text-ink" : "hover:bg-chalk/10",
+                isActive(pathname, item.href) ? "bg-lime text-on-lime" : "hover:bg-chalk/10",
               )}
             >
               {item.label}

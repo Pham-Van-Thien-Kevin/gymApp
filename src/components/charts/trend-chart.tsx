@@ -15,15 +15,17 @@ export type TrendSeries = {
    */
   dash?: string;
   opacity?: number;
-  /** CSS-kleur van de lijn, standaard lime. Bv. "var(--color-lift-squat)". */
+  /** CSS-kleur van de lijn, standaard de accentkleur. Bv. "var(--color-lift-squat)". */
   color?: string;
+  /** Sleutel met een tekst per punt (bv. "140 kg × 3 @ RPE 9") die de tooltip toont in plaats van enkel het getal. */
+  detailKey?: string;
 };
 
 type Point = { date: string } & Record<string, number | string | null | undefined>;
 
-// Assen, raster en labels zijn chalk (currentColor); de datalijnen zijn lime, tenzij een reeks een eigen kleur meekrijgt.
+// Assen, raster en labels zijn chalk (currentColor); de datalijnen hebben de accentkleur (lime of, in light mode, olijfgroen), tenzij een reeks een eigen kleur meekrijgt.
 // Een CSS-variabele werkt ook als SVG-attribuut, zo blijft de kleur in globals.css staan.
-const ACCENT = "var(--color-lime)";
+const ACCENT = "var(--color-accent)";
 
 export function TrendChart({
   data,
@@ -105,13 +107,17 @@ export function TrendChart({
                 if (!active || !payload?.length) return null;
                 const point = payload[0].payload as Point;
                 return (
-                  <div className="border border-chalk/40 bg-ink px-3 py-2 text-sm text-chalk">
+                  <div className="rounded-lg border border-chalk/40 bg-ink px-3 py-2 text-sm text-chalk">
                     <p className="font-semibold">{formatDate(point.date, { weekday: "short", day: "numeric", month: "short", year: "numeric" })}</p>
-                    {series.map((s) => (
-                      <p key={s.key} className="tabular-nums text-chalk/80">
-                        {s.label}: <span className="font-semibold text-chalk">{formatValue(point[s.key], unit)}</span>
-                      </p>
-                    ))}
+                    {series.map((s) => {
+                      const detail = s.detailKey ? point[s.detailKey] : undefined;
+                      return (
+                        <p key={s.key} className="tabular-nums text-chalk/80">
+                          {s.label}:{" "}
+                          <span className="font-semibold text-chalk">{typeof detail === "string" ? detail : formatValue(point[s.key], unit)}</span>
+                        </p>
+                      );
+                    })}
                     {typeof point.detail === "string" && point.detail && <p className="mt-1 text-chalk/60">{point.detail}</p>}
                   </div>
                 );

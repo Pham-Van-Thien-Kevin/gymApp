@@ -114,8 +114,8 @@ export function FormMessage({ state }: { state: ActionState }) {
     <p
       role={isError ? "alert" : "status"}
       className={cn(
-        "border px-3 py-2 text-sm",
-        isError ? "border-2 border-lime font-semibold" : "border-chalk/30 bg-chalk/5",
+        "rounded-lg border px-3 py-2 text-sm",
+        isError ? "border-2 border-accent font-semibold" : "border-chalk/30 bg-chalk/5",
       )}
     >
       <span aria-hidden="true">{isError ? "✕ " : "✓ "}</span>

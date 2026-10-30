@@ -52,12 +52,12 @@ export function Section({
 }
 
 export function Card({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn("border border-chalk/15 p-4 sm:p-5", className)}>{children}</div>;
+  return <div className={cn("rounded-xl border border-chalk/15 p-4 sm:p-5", className)}>{children}</div>;
 }
 
 export function Stat({ label, value, hint }: { label: string; value: ReactNode; hint?: ReactNode }) {
   return (
-    <div className="border border-chalk/15 p-4">
+    <div className="rounded-xl border border-chalk/15 p-4">
       <p className="text-sm text-chalk/60">{label}</p>
       <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight">{value}</p>
       {hint && <p className="mt-1 text-sm text-chalk/60">{hint}</p>}
@@ -69,8 +69,8 @@ export function Badge({ children, strong = false }: { children: ReactNode; stron
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide",
-        strong ? "bg-lime text-ink" : "border border-chalk/40 text-chalk/80",
+        "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide",
+        strong ? "bg-lime text-on-lime" : "border border-chalk/40 text-chalk/80",
       )}
     >
       {children}
@@ -80,7 +80,7 @@ export function Badge({ children, strong = false }: { children: ReactNode; stron
 
 export function EmptyState({ title, children, action }: { title: string; children?: ReactNode; action?: ReactNode }) {
   return (
-    <div className="border border-dashed border-chalk/30 p-8 text-center">
+    <div className="rounded-xl border border-dashed border-chalk/30 p-8 text-center">
       <p className="text-lg font-semibold">{title}</p>
       {children && <div className="mx-auto mt-2 max-w-md text-chalk/70">{children}</div>}
       {action && <div className="mt-5 flex justify-center">{action}</div>}
@@ -89,7 +89,7 @@ export function EmptyState({ title, children, action }: { title: string; childre
 }
 
 export function Skeleton({ className }: { className?: string }) {
-  return <div aria-hidden="true" className={cn("animate-pulse bg-chalk/10", className)} />;
+  return <div aria-hidden="true" className={cn("animate-pulse rounded-lg bg-chalk/10", className)} />;
 }
 
 /** Standaard laadscherm voor loading.tsx-bestanden. */

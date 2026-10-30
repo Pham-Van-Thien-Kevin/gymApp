@@ -37,7 +37,7 @@ export default async function ProgramsPage() {
                 const active = (program.program_assignments as { active: boolean }[]).filter((a) => a.active).length;
                 return (
                   <li key={program.id}>
-                    <Link href={`/trainer/programs/${program.id}`} className="block h-full border border-chalk/15 p-5 hover:border-chalk">
+                    <Link href={`/trainer/programs/${program.id}`} className="block h-full rounded-xl border border-chalk/15 p-5 hover:border-chalk">
                       <p className="text-lg font-bold">{program.name}</p>
                       {program.description && <p className="mt-1 line-clamp-2 text-sm text-chalk/70">{program.description}</p>}
                       <p className="mt-3 text-sm text-chalk/60">

@@ -35,8 +35,8 @@ export default async function ExercisesPage({ searchParams }: PageProps<"/traine
                     href={category ? `/trainer/exercises?categorie=${category}` : "/trainer/exercises"}
                     aria-current={filter === category ? "page" : undefined}
                     className={cn(
-                      "flex min-h-10 items-center border px-3 text-sm font-medium",
-                      filter === category ? "border-lime bg-lime text-ink" : "border-chalk/30 text-chalk/80 hover:border-chalk",
+                      "flex min-h-10 items-center rounded-full border px-3 text-sm font-medium",
+                      filter === category ? "border-lime bg-lime text-on-lime" : "border-chalk/30 text-chalk/80 hover:border-chalk",
                     )}
                   >
                     {category ?? "Alle"}

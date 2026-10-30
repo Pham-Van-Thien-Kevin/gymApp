@@ -19,13 +19,13 @@ export function RegisterForm() {
     <form action={formAction} className="flex flex-col gap-5">
       <fieldset>
         <legend className="label">Ik ben</legend>
-        <div className="grid grid-cols-2 border border-chalk/30">
+        <div className="grid overflow-hidden rounded-lg grid-cols-2 border border-chalk/30">
           {(["member", "trainer"] as const).map((option) => (
             <label
               key={option}
               className={cn(
-                "flex min-h-12 cursor-pointer items-center justify-center font-semibold has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-lime",
-                role === option ? "bg-lime text-ink" : "text-chalk/80 hover:bg-chalk/10",
+                "flex min-h-12 cursor-pointer items-center justify-center font-semibold has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-accent",
+                role === option ? "bg-lime text-on-lime" : "text-chalk/80 hover:bg-chalk/10",
               )}
             >
               <input

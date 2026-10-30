@@ -3,7 +3,7 @@
 // geen "use client" nodig: wat een Client Component importeert, draait mee in de browser.
 import { formatDate } from "@/lib/dates";
 import { BAR_WEIGHT, MAX_TABLE_REPS, RPE_TABLE, platesPerSide } from "@/lib/rpe";
-import { formatNumber } from "@/lib/stats";
+import { formatLoad, formatNumber } from "@/lib/stats";
 
 export type Suggestion = {
   weight: number;
@@ -21,7 +21,7 @@ export function SuggestionLine({ suggestion, exerciseName, onFill }: { suggestio
         <span className="font-bold tabular-nums">{formatNumber(suggestion.weight, 2)} kg</span>
         <span className="text-chalk/60">
           {" "}
-          voor {suggestion.reps} @ RPE {formatNumber(suggestion.rpe)} · je geschat 1RM: {formatNumber(suggestion.reference.e1rm, 1)} kg (
+          voor {suggestion.reps} @ RPE {formatNumber(suggestion.rpe)} · je geschat 1RM: {formatLoad(suggestion.reference.e1rm)} (
           {formatDate(suggestion.reference.date)})
         </span>
       </p>
@@ -29,7 +29,7 @@ export function SuggestionLine({ suggestion, exerciseName, onFill }: { suggestio
         type="button"
         onClick={onFill}
         aria-label={`Voorstel van ${formatNumber(suggestion.weight, 2)} kg invullen bij ${exerciseName}`}
-        className="min-h-9 border border-chalk/40 px-2 text-xs font-semibold hover:border-chalk hover:bg-chalk/10"
+        className="min-h-9 rounded-md border border-chalk/40 px-2 text-xs font-semibold hover:border-chalk hover:bg-chalk/10"
       >
         Invullen
       </button>
@@ -59,9 +59,9 @@ export function PlatesLine({ weight }: { weight: number }) {
 /** Meldt een persoonlijk record: lime, want dit is een moment om te vieren. */
 export function PrLine({ e1rm, previousBest }: { e1rm: number; previousBest: number }) {
   return (
-    <p role="status" className="text-sm font-semibold text-lime">
+    <p role="status" className="text-sm font-semibold text-accent">
       <span aria-hidden="true">▲ </span>
-      Nieuw record! Geschat 1RM {formatNumber(e1rm, 1)} kg
+      Nieuw record! Geschat 1RM {formatLoad(e1rm)}
       <span className="font-normal text-chalk/70"> (vorige beste {formatNumber(previousBest, 1)} kg)</span>
     </p>
   );
@@ -89,7 +89,7 @@ export function TargetPicker({
       <span className="text-chalk/60">Doel</span>
       <select
         aria-label={`Aantal reps voor het voorstel bij ${exerciseName}`}
-        className="min-h-9 border border-chalk/30 px-1 tabular-nums"
+        className="min-h-9 rounded-md border border-chalk/30 px-1 tabular-nums"
         value={reps}
         onChange={(event) => onChange(Number(event.target.value), rpe)}
       >
@@ -102,7 +102,7 @@ export function TargetPicker({
       <span className="text-chalk/60">reps @ RPE</span>
       <select
         aria-label={`RPE voor het voorstel bij ${exerciseName}`}
-        className="min-h-9 border border-chalk/30 px-1 tabular-nums"
+        className="min-h-9 rounded-md border border-chalk/30 px-1 tabular-nums"
         value={rpe}
         onChange={(event) => onChange(reps, Number(event.target.value))}
       >

@@ -13,7 +13,7 @@ export default function RegisterPage() {
       <RegisterForm />
       <p className="mt-8 text-chalk/70">
         Al een account?{" "}
-        <Link href="/login" className="font-semibold text-lime underline underline-offset-4">
+        <Link href="/login" className="font-semibold text-accent underline underline-offset-4">
           Log in
         </Link>
       </p>

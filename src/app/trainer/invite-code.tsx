@@ -10,10 +10,10 @@ export function InviteCode({ code }: { code: string }) {
   const [isPending, startTransition] = useTransition();
 
   return (
-    <div className="flex flex-col gap-4 border border-chalk/20 p-5 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-4 rounded-xl border border-chalk/20 p-5 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <p className="text-sm text-chalk/70">Jouw uitnodigingscode</p>
-        <p className="font-mono text-4xl font-bold tracking-[0.2em] text-lime">{code}</p>
+        <p className="font-mono text-4xl font-bold tracking-[0.2em] text-accent">{code}</p>
         <p className="mt-1 text-sm text-chalk/60">Cliënten vullen deze code in bij registratie of in hun profiel.</p>
       </div>
       <div className="flex flex-wrap gap-2">

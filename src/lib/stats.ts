@@ -1,7 +1,7 @@
 // Pure rekenfuncties (geen database, geen React): makkelijk te testen en te
 // hergebruiken op de server én in de browser.
 import { addDays, daysBetween, startOfWeek } from "@/lib/dates";
-import { estimateOneRepMax } from "@/lib/rpe";
+import { estimateOneRepMax, roundToIncrement } from "@/lib/rpe";
 import type { SetLogRow } from "@/lib/types";
 
 /**
@@ -29,40 +29,60 @@ export function countInWeek(workoutDates: string[], today: string): number {
 
 export type ProgressPoint = {
   date: string;
-  heaviest: number; // zwaarste set (kg)
+  heaviest: number; // zwaarste set (kg): wat je echt op de stang had
+  heaviestSet: string; // die set, bv. "140 kg × 3 @ RPE 9"
   e1rm: number; // beste geschatte 1RM die dag (kg)
-  bestSet: string; // bv. "100 kg × 5 @ RPE 8"
+  bestSet: string; // de set waarop dat 1RM gebaseerd is
 };
 
-/** Groepeer sets per dag: zwaarste gewicht en beste geschatte 1RM. */
+const describeSet = (row: SetLogRow) => `${formatKg(row.weight)} × ${row.reps ?? "?"}${row.rpe !== null ? ` @ RPE ${formatNumber(row.rpe)}` : ""}`;
+
+/** Groepeer sets per dag: zwaarste set en beste geschatte 1RM. */
 export function buildProgressSeries(rows: SetLogRow[]): ProgressPoint[] {
-  const byDate = new Map<string, ProgressPoint>();
+  const byDate = new Map<string, ProgressPoint & { heaviestReps: number }>();
   for (const row of rows) {
     if (row.weight === null || row.weight <= 0) continue;
     const e1rm = row.reps ? estimateOneRepMax(row.weight, row.reps, row.rpe) : 0;
-    const point = byDate.get(row.date) ?? { date: row.date, heaviest: 0, e1rm: 0, bestSet: "" };
-    if (row.weight > point.heaviest) point.heaviest = row.weight;
+    const point = byDate.get(row.date) ?? { date: row.date, heaviest: 0, heaviestSet: "", heaviestReps: -1, e1rm: 0, bestSet: "" };
+    // Zelfde gewicht? Dan telt de set met de meeste reps (140 × 3 zegt meer dan 140 × 1).
+    const reps = row.reps ?? 0;
+    if (row.weight > point.heaviest || (row.weight === point.heaviest && reps > point.heaviestReps)) {
+      point.heaviest = row.weight;
+      point.heaviestReps = reps;
+      point.heaviestSet = describeSet(row);
+    }
     if (e1rm > point.e1rm) {
       point.e1rm = e1rm;
-      point.bestSet = `${formatKg(row.weight)} × ${row.reps}${row.rpe !== null ? ` @ RPE ${formatNumber(row.rpe)}` : ""}`;
+      point.bestSet = describeSet(row);
     }
     byDate.set(row.date, point);
   }
   return [...byDate.values()]
-    .map((point) => ({ ...point, e1rm: Math.round(point.e1rm * 10) / 10 }))
+    .map((point) => ({
+      date: point.date,
+      heaviest: point.heaviest,
+      heaviestSet: point.heaviestSet,
+      e1rm: Math.round(point.e1rm * 10) / 10,
+      bestSet: point.bestSet,
+    }))
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
+type SeriesPoint = { date: string; value: number; detail?: string };
+
 /**
  * Leg meerdere reeksen naast elkaar op één tijd-as: één rij per datum met per
- * reeks een waarde. Werd een lift die dag niet getraind, dan ontbreekt de sleutel.
+ * reeks een waarde (en eventueel `<reeks>Detail`, bv. de set voor de tooltip).
+ * Werd een lift die dag niet getraind, dan ontbreekt de sleutel.
  */
-export function combineByDate<K extends string>(series: Record<K, { date: string; value: number }[]>) {
+export function combineByDate<K extends string>(series: Record<K, SeriesPoint[]>) {
   const byDate = new Map<string, Record<string, number | string>>();
-  for (const [key, points] of Object.entries(series) as [K, { date: string; value: number }[]][]) {
-    for (const { date, value } of points) byDate.set(date, { ...byDate.get(date), date, [key]: value });
+  for (const [key, points] of Object.entries(series) as [K, SeriesPoint[]][]) {
+    for (const { date, value, detail } of points) {
+      byDate.set(date, { ...byDate.get(date), date, [key]: value, ...(detail ? { [`${key}Detail`]: detail } : {}) });
+    }
   }
-  return [...byDate.values()].sort((a, b) => String(a.date).localeCompare(String(b.date))) as ({ date: string } & Partial<Record<K, number>>)[];
+  return [...byDate.values()].sort((a, b) => String(a.date).localeCompare(String(b.date))) as ({ date: string } & Record<string, number | string | undefined>)[];
 }
 
 export type ReferenceMax = { e1rm: number; date: string };
@@ -89,4 +109,13 @@ export function formatNumber(value: number | null | undefined, digits = 1): stri
 
 export function formatKg(value: number | null | undefined): string {
   return value === null || value === undefined ? "–" : `${formatNumber(value, 2)} kg`;
+}
+
+/**
+ * Een GESCHAT gewicht (1RM, voorstel) zoals je het op de stang kan leggen:
+ * afgerond op 2,5 kg, de kleinste sprong met IPF-schijven (1,25 kg per kant).
+ * Gelogde sets en lichaamsgewicht tonen we exact, met formatKg.
+ */
+export function formatLoad(value: number | null | undefined): string {
+  return value === null || value === undefined ? "–" : formatKg(roundToIncrement(value));
 }

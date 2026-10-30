@@ -16,7 +16,7 @@ import {
   platesPerSide,
   suggestLoad,
 } from "@/lib/rpe";
-import { formatNumber } from "@/lib/stats";
+import { formatKg, formatLoad, formatNumber } from "@/lib/stats";
 
 type Mode = "load" | "max" | "rpe";
 export type OneRepMaxPreset = { name: string; e1rm: number; note: string };
@@ -43,7 +43,7 @@ export function RpeCalculator({ presets = [] }: { presets?: OneRepMaxPreset[] })
 
   return (
     <div className="flex flex-col gap-6">
-      <div role="radiogroup" aria-label="Wat wil je berekenen?" className="grid grid-cols-3 border border-chalk/30">
+      <div role="radiogroup" aria-label="Wat wil je berekenen?" className="grid overflow-hidden rounded-lg grid-cols-3 border border-chalk/30">
         {MODES.map((option) => (
           <button
             key={option.id}
@@ -51,7 +51,7 @@ export function RpeCalculator({ presets = [] }: { presets?: OneRepMaxPreset[] })
             role="radio"
             aria-checked={mode === option.id}
             onClick={() => setMode(option.id)}
-            className={cn("min-h-12 font-semibold", mode === option.id ? "bg-lime text-ink" : "text-chalk/80 hover:bg-chalk/10")}
+            className={cn("min-h-12 font-semibold", mode === option.id ? "bg-lime text-on-lime" : "text-chalk/80 hover:bg-chalk/10")}
           >
             {option.label}
           </button>
@@ -109,7 +109,7 @@ export function RpeCalculator({ presets = [] }: { presets?: OneRepMaxPreset[] })
             <option value="">Kies een oefening…</option>
             {presets.map((preset, index) => (
               <option key={preset.name} value={index}>
-                {preset.name}: {formatNumber(preset.e1rm, 1)} kg ({preset.note})
+                {preset.name}: {formatLoad(preset.e1rm)} ({preset.note})
               </option>
             ))}
           </select>
@@ -117,7 +117,7 @@ export function RpeCalculator({ presets = [] }: { presets?: OneRepMaxPreset[] })
       )}
 
       {/* aria-live: een schermlezer leest het nieuwe resultaat voor zodra je iets aanpast. */}
-      <section aria-live="polite" aria-label="Resultaat" className="border border-chalk/20 p-5">
+      <section aria-live="polite" aria-label="Resultaat" className="rounded-xl border border-chalk/20 p-5">
         {mode === "load" && <LoadResult max={max} reps={reps} rpe={rpe} />}
         {mode === "max" && <MaxResult weight={load} reps={reps} rpe={rpe} />}
         {mode === "rpe" && <RpeResult max={max} weight={load} reps={reps} />}
@@ -155,7 +155,7 @@ function LoadResult({ max, reps, rpe }: { max: number | null; reps: number; rpe:
       </p>
       <p className="text-5xl font-bold tabular-nums">{formatNumber(suggested, 2)} kg</p>
       <p className="mt-1 text-sm text-chalk/70">
-        {formatNumber(max * percentage, 2)} kg exact · {formatNumber(percentage * 100, 1)}% van {formatNumber(max, 2)} kg · afgerond op 2,5 kg
+        {formatNumber(percentage * 100, 1)}% van {formatKg(max)}, afgerond op 2,5 kg
       </p>
       <p className="mt-3 text-sm">
         <span className="text-chalk/60">Schijven per kant (stang {BAR_WEIGHT} kg): </span>
@@ -176,9 +176,9 @@ function MaxResult({ weight, reps, rpe }: { weight: number | null; reps: number;
       <p className="text-sm text-chalk/60">
         {formatNumber(weight, 2)} kg × {reps} @ RPE {formatNumber(rpe)}
       </p>
-      <p className="text-5xl font-bold tabular-nums">{formatNumber(max, 1)} kg</p>
+      <p className="text-5xl font-bold tabular-nums">{formatLoad(max)}</p>
       <p className="mt-1 text-sm text-chalk/70">
-        Geschat 1RM: {formatNumber(weight, 2)} kg ÷ {formatNumber((percentage ?? 0) * 100, 1)}% uit de RPE-tabel
+        Geschat 1RM: {formatNumber(weight, 2)} kg ÷ {formatNumber((percentage ?? 0) * 100, 1)}% uit de RPE-tabel, afgerond op 2,5 kg
       </p>
     </>
   );
@@ -216,7 +216,7 @@ function RpeResult({ max, weight, reps }: { max: number | null; weight: number |
 /** Alle gewichten voor dit 1RM in één oogopslag; de gekozen combinatie in lime. */
 function LoadChart({ max, reps, rpe }: { max: number; reps: number; rpe: number }) {
   return (
-    <details className="border border-chalk/15">
+    <details className="overflow-hidden rounded-xl border border-chalk/15">
       <summary className="flex min-h-12 cursor-pointer items-center px-4 font-semibold hover:bg-chalk/5">
         Alle gewichten voor een 1RM van {formatNumber(max, 2)} kg
       </summary>
@@ -244,7 +244,7 @@ function LoadChart({ max, reps, rpe }: { max: number; reps: number; rpe: number 
                 {REPS.map((value) => {
                   const selected = value === reps && rowRpe === rpe;
                   return (
-                    <td key={value} className={cn("px-1", selected ? "bg-lime font-bold text-ink" : "text-chalk/80")}>
+                    <td key={value} className={cn("px-1", selected ? "bg-lime font-bold text-on-lime" : "text-chalk/80")}>
                       {formatNumber(suggestLoad(max, value, rowRpe), 2)}
                     </td>
                   );

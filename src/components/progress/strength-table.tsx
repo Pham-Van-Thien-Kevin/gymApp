@@ -15,7 +15,7 @@ export function StrengthTable({ tests }: { tests: StrengthTest[] }) {
     total: Math.max(...tests.map((t) => t.total)),
   };
   const cell = (value: number | null, isBest: boolean) => (
-    <td className={isBest ? "pr-3 font-bold text-lime last:pr-0 sm:pr-4" : "pr-3 text-chalk/80 last:pr-0 sm:pr-4"}>
+    <td className={isBest ? "pr-3 font-bold text-accent last:pr-0 sm:pr-4" : "pr-3 text-chalk/80 last:pr-0 sm:pr-4"}>
       {formatNumber(value, 2)}
       {/* Op mobiel is "kg" enkel voor schermlezers: zo past ook de kolom Totaal. */}
       {value !== null && <span className="max-sm:sr-only"> kg</span>}

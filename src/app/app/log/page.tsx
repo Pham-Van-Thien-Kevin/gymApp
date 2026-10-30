@@ -141,8 +141,8 @@ function ChooseSession({ programName, days, nextId }: { programName: string; day
               href={`/app/log?day=${day.id}`}
               className={
                 day.id === nextId
-                  ? "flex min-h-16 items-center justify-between gap-4 bg-lime px-5 font-semibold text-ink"
-                  : "flex min-h-16 items-center justify-between gap-4 border border-chalk/20 px-5 font-semibold hover:border-chalk"
+                  ? "flex min-h-16 items-center justify-between gap-4 rounded-xl bg-lime px-5 font-semibold text-on-lime"
+                  : "flex min-h-16 items-center justify-between gap-4 rounded-xl border border-chalk/20 px-5 font-semibold hover:border-chalk"
               }
             >
               <span>{day.name}</span>
