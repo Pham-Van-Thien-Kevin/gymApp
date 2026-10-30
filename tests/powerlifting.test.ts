@@ -113,3 +113,24 @@ describe("schijven per kant", () => {
     expect(platesPerSide(101)).toEqual({ plates: [25, 15], rest: 1 });
   });
 });
+
+describe("IPF GL-punten", () => {
+  it("rekent met de IPF-formule (classic)", async () => {
+    const { glPoints } = await import("@/lib/gl");
+    // 700 kg total bij 83 kg, man: 700 × 100 / (1199.72839 − 1025.18162 · e^(−0.00921 · 83))
+    const expected = (700 * 100) / (1199.72839 - 1025.18162 * Math.exp(-0.00921 * 83));
+    expect(glPoints(700, 83, "M")).toBeCloseTo(expected, 2);
+    expect(glPoints(700, 83, "M")).toBeGreaterThan(90);
+    expect(glPoints(700, 83, "M")).toBeLessThan(100);
+    // Zelfde total, lichter = meer punten.
+    expect(glPoints(700, 74, "M")!).toBeGreaterThan(glPoints(700, 83, "M")!);
+    // Vrouwen hebben eigen coëfficiënten.
+    expect(glPoints(400, 63, "V")).toBeCloseTo((400 * 100) / (610.32796 - 1045.59282 * Math.exp(-0.03048 * 63)), 2);
+  });
+
+  it("geeft null zonder total of lichaamsgewicht", async () => {
+    const { glPoints } = await import("@/lib/gl");
+    expect(glPoints(0, 80, "M")).toBeNull();
+    expect(glPoints(500, null, "M")).toBeNull();
+  });
+});

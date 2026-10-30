@@ -4,7 +4,10 @@
 //
 // Met ?exercise=sbd tonen we squat, bench en deadlift samen. Heb je die
 // gelogd, dan is dat ook wat je eerst ziet.
-import { getLoggedExercises, getSetLog, getSetLogs } from "@/lib/data";
+import { getBodyMetrics, getLoggedExercises, getSetLog, getSetLogs } from "@/lib/data";
+import { cookies } from "next/headers";
+import { GL_SEX_COOKIE } from "@/lib/gl";
+import { GlPoints } from "./gl-points";
 import { BIG_THREE, BIG_THREE_VIEW, bigThreeLift, type BigThreeLift } from "@/lib/exercises";
 import { roundToIncrement } from "@/lib/rpe";
 import { buildProgressSeries, combineByDate, formatKg, formatLoad, pickReferenceE1rm, weeklyTonnage, type ProgressPoint } from "@/lib/stats";
@@ -59,7 +62,14 @@ async function BigThreeChart({ memberId, options }: { memberId: string; options:
   // Een sporter kan twee oefeningen "Squat" hebben (standaardbibliotheek én
   // import): alle ids per lift samen, zodat de geschiedenis niet in twee valt.
   const idsByLift = Object.fromEntries(BIG_THREE.map((lift) => [lift, options.filter((o) => bigThreeLift(o.name) === lift).map((o) => o.id)])) as Record<BigThreeLift, string[]>;
-  const rows = await getSetLogs(memberId, Object.values(idsByLift).flat());
+  const [rows, bodyMetrics, cookieStore] = await Promise.all([
+    getSetLogs(memberId, Object.values(idsByLift).flat()),
+    getBodyMetrics(memberId),
+    cookies(),
+  ]);
+  const glSex = cookieStore.get(GL_SEX_COOKIE)?.value === "V" ? "V" : "M";
+  // Laatste meting (de lijst is oud → nieuw), voor de GL-punten.
+  const bodyweight = bodyMetrics.at(-1)?.weight ?? null;
   const today = todayISO();
 
   const perLift = Object.fromEntries(
@@ -78,12 +88,14 @@ async function BigThreeChart({ memberId, options }: { memberId: string; options:
   return (
     <>
       <p className="-mb-2 text-sm text-chalk/60">Geschat 1RM, afgerond op 2,5 kg</p>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {BIG_THREE.map((lift) => {
           const estimate = estimates[lift];
           return <Stat key={lift} label={LIFT_LABEL[lift]} value={formatLoad(estimate?.e1rm)} hint={estimate ? estimateHint(estimate) : "Nog niet gelogd"} />;
         })}
         <Stat label="Total" value={formatKg(total)} hint={lifts.length < 3 ? "Niet alle drie gelogd" : "Som van de drie"} />
+        {/* GL enkel met een volledige total: anders vergelijk je appels met peren. */}
+        {lifts.length === 3 && <GlPoints total={total} bodyweight={bodyweight} initialSex={glSex} />}
       </div>
       <TrendChart
         title="Zwaarste set per training: squat, bench en deadlift"
