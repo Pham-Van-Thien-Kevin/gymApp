@@ -37,6 +37,10 @@ export type Program = {
   id: string;
   name: string;
   description: string | null;
+  /** Blokopbouw: RPE van rpe_start naar rpe_end over block_weeks weken (alle drie null = geen blok). */
+  block_weeks: number | null;
+  rpe_start: number | null;
+  rpe_end: number | null;
   program_days: ProgramDay[];
 };
 
@@ -44,6 +48,8 @@ export type ActiveAssignment = {
   id: string;
   start_date: string;
   program: Program;
+  /** Welke blokweek het vandaag is (null als het schema geen blok is). */
+  block: { week: number; weeks: number; rpe: number; finished: boolean } | null;
 };
 
 export type WorkoutStatus = "completed" | "planned";

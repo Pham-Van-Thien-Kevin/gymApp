@@ -56,10 +56,15 @@ export function findUnknownNames(workbook: ParsedWorkbook, library: LibraryExerc
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 }
 
-export function defaultChoices(workbook: ParsedWorkbook, unknown: UnknownName[]): ImportChoices {
+/**
+ * Standaardkeuzes voor de preview. Startdatum van week 1: die van de vorige
+ * import van dezelfde maandtab (ook als je dat blok opschoof), anders de eerste
+ * maandag van de maand.
+ */
+export function defaultChoices(workbook: ParsedWorkbook, unknown: UnknownName[], previousWeek1: Record<string, string> = {}): ImportChoices {
   return {
     tabs: Object.fromEntries(
-      workbook.months.map((month) => [month.tab, { include: true, week1: firstMondayOfMonth(month.year, month.month) }]),
+      workbook.months.map((month) => [month.tab, { include: true, week1: previousWeek1[month.tab] ?? firstMondayOfMonth(month.year, month.month) }]),
     ),
     includeInfo: workbook.info !== null,
     names: Object.fromEntries(unknown.map((name) => [name.key, name.suggestion])),

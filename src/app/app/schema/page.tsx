@@ -6,6 +6,7 @@ import { formatLongDate, todayISO } from "@/lib/dates";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState, PageHeader } from "@/components/ui/layout";
 import { ProgramView } from "@/components/program-view";
+import { BlockProgress } from "@/components/block-progress";
 
 export const metadata: Metadata = { title: "Schema" };
 
@@ -47,6 +48,7 @@ export default async function SchemaPage() {
         title={program.name}
         description={program.description}
       />
+      <BlockProgress assignment={assignment} />
       <ProgramView
         days={program.program_days}
         loads={loads}

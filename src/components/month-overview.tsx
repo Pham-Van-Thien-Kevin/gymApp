@@ -5,7 +5,14 @@ import { formatDate } from "@/lib/dates";
 import type { MonthSummary, WeekSummary } from "@/lib/blocks";
 import { cn } from "@/lib/cn";
 
-export function MonthOverview({ months }: { months: MonthSummary[] }) {
+export function MonthOverview({
+  months,
+  shiftAction,
+}: {
+  months: MonthSummary[];
+  /** Enkel voor de sporter zelf: een geïmporteerde maand een week opschuiven. */
+  shiftAction?: (sheetTab: string, days: number) => Promise<void>;
+}) {
   if (months.length === 0) return null;
   return (
     <div className="flex flex-col gap-4">
@@ -22,6 +29,18 @@ export function MonthOverview({ months }: { months: MonthSummary[] }) {
               <WeekCell key={week.week} week={week} />
             ))}
           </ol>
+          {shiftAction && month.importTab && (
+            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+              <span className="text-chalk/60">Begon week 1 in je sheet op een andere maandag?</span>
+              {/* Gewone formulieren met een Server Action: werkt ook zonder JavaScript. */}
+              <form action={shiftAction.bind(null, month.importTab, -7)}>
+                <button type="submit" className="font-semibold underline underline-offset-4">1 week eerder</button>
+              </form>
+              <form action={shiftAction.bind(null, month.importTab, 7)}>
+                <button type="submit" className="font-semibold underline underline-offset-4">1 week later</button>
+              </form>
+            </div>
+          )}
         </section>
       ))}
     </div>

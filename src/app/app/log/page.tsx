@@ -17,6 +17,7 @@ import {
   getPreviousPerformances,
   getProgramDay,
   getWorkoutDates,
+  getPlannedWorkouts,
   getWorkoutDetail,
 } from "@/lib/data";
 import { addDays, formatDate, todayISO } from "@/lib/dates";
@@ -24,7 +25,7 @@ import { plannedState } from "@/lib/blocks";
 import { uniqueByName } from "@/lib/exercises";
 import { isUuid } from "@/lib/parse";
 import { pickTodaysDay, weekdayLabel } from "@/lib/program";
-import type { ProgramDay, WorkoutDetail } from "@/lib/types";
+import type { ProgramDay, WorkoutDetail, WorkoutListItem } from "@/lib/types";
 import { PageHeader } from "@/components/ui/layout";
 import { WorkoutLogger } from "./workout-logger";
 
@@ -47,6 +48,10 @@ export default async function LogPage({ searchParams }: PageProps<"/app/log">) {
   }
 
   if (!dayId && vrij !== "1") {
+    // Eerst je sheet: geplande sessies van deze week die je nog moet doen.
+    const planned = await getPlannedWorkouts(profile.id, today);
+    if (planned.total > 0) return <ChoosePlanned sessions={planned.items} />;
+
     const assignment = await getActiveAssignment(profile.id);
     if (assignment && assignment.program.program_days.length > 0) {
       const recent = await getWorkoutDates(profile.id, addDays(today, -60));
@@ -64,7 +69,10 @@ export default async function LogPage({ searchParams }: PageProps<"/app/log">) {
     }
   }
 
-  const [allExercises, programDay] = await Promise.all([getExercises(), dayId ? getProgramDay(dayId) : null]);
+  const [allExercises, assignment] = await Promise.all([getExercises(), dayId ? getActiveAssignment(profile.id) : null]);
+  // Een dag uit je eigen schema nemen we uit de toewijzing: daar staat de RPE
+  // van deze blokweek al in. Anders (bv. een oude link) de dag zoals hij is.
+  const programDay = dayId ? (assignment?.program.program_days.find((day) => day.id === dayId) ?? (await getProgramDay(dayId))) : null;
   // Eén oefening per naam: je eigen versie (met je geschiedenis) gaat voor.
   const exercises = uniqueByName(allExercises, profile.id);
   const exerciseIds = (programDay?.program_exercises ?? []).flatMap((pe) => (pe.exercise ? [pe.exercise.id] : []));
@@ -124,6 +132,44 @@ async function LogPlanned({ memberId, today, planned }: { memberId: string; toda
         previous={previous}
         stats={stats}
       />
+    </>
+  );
+}
+
+/** Deze week nog te doen uit je sheet: kies een sessie en werk ze meteen af. */
+function ChoosePlanned({ sessions }: { sessions: WorkoutListItem[] }) {
+  return (
+    <>
+      <PageHeader
+        eyebrow="Training loggen"
+        title="Deze week te doen"
+        description={sessions.length === 1 ? "Nog één sessie uit je schema deze week." : `Nog ${sessions.length} sessies uit je schema deze week.`}
+      />
+      <ul className="flex flex-col gap-3">
+        {sessions.map((session, index) => (
+          <li key={session.id}>
+            <Link
+              href={`/app/log?gepland=${session.id}`}
+              className={
+                index === 0
+                  ? "flex min-h-16 items-center justify-between gap-4 rounded-xl bg-lime px-5 font-semibold text-on-lime"
+                  : "flex min-h-16 items-center justify-between gap-4 rounded-xl border border-chalk/20 px-5 font-semibold hover:border-chalk"
+              }
+            >
+              <span>{session.title ?? "Training"}</span>
+              <span className={index === 0 ? "shrink-0 text-sm" : "shrink-0 text-sm text-chalk/60"}>
+                {index === 0 ? "Afwerken →" : `${session.exercise_count} oefeningen`}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-6 text-sm text-chalk/60">
+        Iets anders gedaan?{" "}
+        <Link href="/app/log?vrij=1" className="text-chalk underline underline-offset-4">
+          Log een vrije training
+        </Link>
+      </p>
     </>
   );
 }

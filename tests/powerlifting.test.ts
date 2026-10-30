@@ -134,3 +134,34 @@ describe("IPF GL-punten", () => {
     expect(glPoints(500, null, "M")).toBeNull();
   });
 });
+
+describe("blokopbouw", () => {
+  it("4 weken van RPE 6 naar 9: 6, 7, 8, 9", async () => {
+    const { blockRpe } = await import("@/lib/program");
+    const block = { block_weeks: 4, rpe_start: 6, rpe_end: 9 };
+    expect([1, 2, 3, 4].map((week) => blockRpe(block, week))).toEqual([6, 7, 8, 9]);
+    // Na het blok blijft het op de top; vóór week 1 op de start.
+    expect(blockRpe(block, 6)).toBe(9);
+    expect(blockRpe(block, 0)).toBe(6);
+    // Oneven stappen worden afgerond op 0,5: 3 weken van 6 naar 9 = 6, 7,5, 9.
+    expect([1, 2, 3].map((week) => blockRpe({ block_weeks: 3, rpe_start: 6, rpe_end: 9 }, week))).toEqual([6, 7.5, 9]);
+    expect(blockRpe({ block_weeks: null, rpe_start: null, rpe_end: null }, 1)).toBeNull();
+  });
+
+  it("telt de week vanaf de toewijzing (maandag tot zondag)", async () => {
+    const { currentBlock } = await import("@/lib/program");
+    const block = { block_weeks: 4, rpe_start: 6, rpe_end: 9 };
+    // Toegewezen op woensdag 7 oktober: die week is week 1.
+    expect(currentBlock(block, "2026-10-07", "2026-10-11")).toEqual({ week: 1, weeks: 4, rpe: 6, finished: false });
+    expect(currentBlock(block, "2026-10-07", "2026-10-12")).toMatchObject({ week: 2, rpe: 7 });
+    expect(currentBlock(block, "2026-10-07", "2026-11-01")).toMatchObject({ week: 4, rpe: 9, finished: false });
+    expect(currentBlock(block, "2026-10-07", "2026-11-02")).toMatchObject({ week: 4, rpe: 9, finished: true });
+  });
+
+  it("vervangt de RPE van alle oefeningen", async () => {
+    const { withBlockRpe } = await import("@/lib/program");
+    const day = { id: "d", name: "Dag 1", position: 0, weekday: 0, program_exercises: [{ id: "p", position: 0, target_sets: 3, target_reps: "5", target_rpe: "8", notes: null, optional: false, exercise: null }] };
+    expect(withBlockRpe([day], { week: 2, weeks: 4, rpe: 7.5, finished: false })[0].program_exercises[0].target_rpe).toBe("7,5");
+    expect(withBlockRpe([day], null)[0].program_exercises[0].target_rpe).toBe("8");
+  });
+});

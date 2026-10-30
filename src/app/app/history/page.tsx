@@ -6,6 +6,7 @@ import { requireRole } from "@/lib/auth";
 import { getPlannedWorkouts, getWorkoutStatuses, getWorkouts } from "@/lib/data";
 import { summarizeMonths } from "@/lib/blocks";
 import { MonthOverview } from "@/components/month-overview";
+import { shiftMonth } from "./actions";
 import { addDays, formatDate, relativeDays, todayISO } from "@/lib/dates";
 import { ButtonLink, buttonClasses } from "@/components/ui/button";
 import { EmptyState, PageHeader, Section } from "@/components/ui/layout";
@@ -45,7 +46,7 @@ export default async function HistoryPage({ searchParams }: PageProps<"/app/hist
       />
       {page === 1 && months.length > 0 && (
         <Section title="Per maand">
-          <MonthOverview months={months} />
+          <MonthOverview months={months} shiftAction={shiftMonth} />
         </Section>
       )}
       {page === 1 && planned.total > 0 && (

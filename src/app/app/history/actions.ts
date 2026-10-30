@@ -18,3 +18,16 @@ export async function deleteWorkout(workoutId: string) {
   revalidatePath("/app", "layout");
   redirect("/app/history");
 }
+
+/**
+ * Een geïmporteerde maand een week later of vroeger zetten, als week 1 in je
+ * sheet niet op de eerste maandag van de maand begon. Alles van die maandtab
+ * schuift mee, in één transactie (zie shift_import_block in schema.sql).
+ */
+export async function shiftMonth(sheetTab: string, days: number) {
+  await requireRole("member");
+  if (!/^[A-Z]{3}\d{4}$/.test(sheetTab) || (days !== 7 && days !== -7)) return;
+  const supabase = await createClient();
+  await supabase.rpc("shift_import_block", { p_sheet_tab: sheetTab, p_days: days });
+  revalidatePath("/app", "layout");
+}

@@ -8,7 +8,7 @@ import { requireRole } from "@/lib/auth";
 import { getExercises, getMemberActivity, sortProgramDays } from "@/lib/data";
 import { WEEKDAYS, formatLongDate, todayISO } from "@/lib/dates";
 import { isUuid } from "@/lib/parse";
-import { formatTarget } from "@/lib/program";
+import { blockRpe, formatRpeTarget, formatTarget } from "@/lib/program";
 import { createClient } from "@/lib/supabase/server";
 import type { Exercise, ProgramDay, ProgramExercise } from "@/lib/types";
 import { groupByCategory, uniqueByName } from "@/lib/exercises";
@@ -20,6 +20,7 @@ import { assignProgram } from "@/app/trainer/actions";
 import {
   addDay,
   addProgramExercise,
+  updateBlock,
   deleteDay,
   deleteProgram,
   deleteProgramExercise,
@@ -41,7 +42,7 @@ export default async function ProgramEditor({ params }: PageProps<"/trainer/prog
     supabase
       .from("programs")
       .select(
-        `id, name, description, trainer_id,
+        `id, name, description, trainer_id, block_weeks, rpe_start, rpe_end,
          program_days ( id, name, position, weekday,
            program_exercises ( id, position, target_sets, target_reps, target_rpe, notes, optional, exercise:exercises ( id, name, category, equipment ) ) ),
          program_assignments ( id, member_id, start_date, active )`,
@@ -69,6 +70,11 @@ export default async function ProgramEditor({ params }: PageProps<"/trainer/prog
       <div className="grid gap-10 xl:grid-cols-[1fr_22rem]">
         <div className="min-w-0">
           <Section title="Dagen">
+            {program.block_weeks !== null && (
+              <p className="-mt-2 mb-4 rounded-lg border border-accent px-3 py-2 text-sm">
+                Blokopbouw staat aan: de RPE hieronder wordt elke week vervangen door de RPE van die blokweek.
+              </p>
+            )}
             <ol className="flex flex-col gap-6">
               {days.map((day, index) => (
                 <li key={day.id}>
@@ -90,6 +96,16 @@ export default async function ProgramEditor({ params }: PageProps<"/trainer/prog
         </div>
 
         <aside className="flex flex-col gap-10">
+          <Section title="Blokopbouw">
+            <BlockEditor
+              programId={id}
+              settings={{
+                block_weeks: program.block_weeks === null ? null : Number(program.block_weeks),
+                rpe_start: program.rpe_start === null ? null : Number(program.rpe_start),
+                rpe_end: program.rpe_end === null ? null : Number(program.rpe_end),
+              }}
+            />
+          </Section>
           <Section title="Toewijzen">
             {activeAssignments.length > 0 && (
               <ul className="mb-4 divide-y divide-chalk/10 border-y border-chalk/10 text-sm">
@@ -315,5 +331,40 @@ function TargetFields({ idPrefix, row }: { idPrefix: string; row?: ProgramExerci
         Optionele oefening
       </label>
     </>
+  );
+}
+
+/**
+ * Blokopbouw: met één vinkje wordt het schema een blok van een aantal weken,
+ * waarin de RPE van alle oefeningen elke week stijgt. De sporter ziet telkens
+ * de RPE van zijn week (geteld vanaf de toewijzing); de RPE per oefening hieronder
+ * geldt dan niet meer.
+ */
+function BlockEditor({ programId, settings }: { programId: string; settings: { block_weeks: number | null; rpe_start: number | null; rpe_end: number | null } }) {
+  const enabled = settings.block_weeks !== null;
+  const preview = enabled ? Array.from({ length: settings.block_weeks! }, (_, i) => blockRpe(settings, i + 1)) : [];
+  return (
+    <ActionForm action={updateBlock.bind(null, programId)}>
+      <div className="flex flex-col gap-3">
+        <label className="flex items-start gap-3">
+          <input type="checkbox" name="enabled" defaultChecked={enabled} className="mt-1 size-5 accent-accent" />
+          <span>
+            <span className="font-semibold">Automatisch blok</span>
+            <span className="block text-sm text-chalk/60">Elke week gaat de RPE van alle oefeningen omhoog.</span>
+          </span>
+        </label>
+        <div className="grid grid-cols-3 gap-2">
+          <Field label="Weken" name="block_weeks" type="number" min={2} max={12} defaultValue={settings.block_weeks ?? 4} />
+          <Field label="RPE start" name="rpe_start" inputMode="decimal" defaultValue={formatRpeTarget(settings.rpe_start ?? 6)} />
+          <Field label="RPE eind" name="rpe_end" inputMode="decimal" defaultValue={formatRpeTarget(settings.rpe_end ?? 9)} />
+        </div>
+        {enabled && (
+          <p className="text-sm text-chalk/70">
+            {preview.map((rpe, i) => `W${i + 1}: RPE ${formatRpeTarget(rpe ?? 0)}`).join(" · ")}
+          </p>
+        )}
+        <SubmitButton variant="secondary">Opslaan</SubmitButton>
+      </div>
+    </ActionForm>
   );
 }

@@ -3,6 +3,7 @@
 // indeling als de import en de export, zodat "oktober, week 3" overal hetzelfde is.
 import { addDays, daysBetween, startOfWeek } from "@/lib/dates";
 import { firstMondayOfMonth } from "@/lib/import/dates";
+import { parseMonthTab } from "@/lib/import/values";
 import type { WorkoutStatus } from "@/lib/types";
 
 export const MONTH_TABS = ["JAN", "FEB", "MRT", "APR", "MEI", "JUN", "JUL", "AUG", "SEP", "OKT", "NOV", "DEC"];
@@ -38,19 +39,35 @@ export function isMissed(workout: { date: string; status: WorkoutStatus }, today
 }
 
 export type WeekSummary = { week: number; monday: string; done: number; total: number; current: boolean; future: boolean };
-export type MonthSummary = { tab: string; year: number; month: number; weeks: WeekSummary[] };
+/** importTab: de maandtab uit de sheet ("OCT2026") als de sessies uit een import komen; dan kan je ze opschuiven. */
+export type MonthSummary = { tab: string; year: number; month: number; importTab: string | null; weeks: WeekSummary[] };
+
+export type StatusRow = { date: string; status: WorkoutStatus; title?: string | null; sheetTab?: string | null };
+
+/**
+ * Bij welke maand en week hoort een sessie? Komt ze uit een import ("Week 3 ·
+ * Sessie 4" uit tab OCT2026), dan precies die maand en week uit de sheet, ook
+ * als het blok opgeschoven is. Anders volgens de kalender (placeWorkout).
+ */
+function placeRow(row: StatusRow) {
+  const fromSheet = row.sheetTab ? parseMonthTab(row.sheetTab) : null;
+  const week = Number(row.title?.match(/^Week\s+(\d+)/)?.[1]);
+  if (fromSheet && week) return { tab: `${MONTH_TABS[fromSheet.month]}${fromSheet.year}`, year: fromSheet.year, month: fromSheet.month, week, importTab: row.sheetTab! };
+  return { ...placeWorkout(row.date), importTab: null };
+}
 
 /**
  * Per maand en per week: hoeveel sessies gedaan van hoeveel. "total" telt de
  * afgewerkte plus de geplande (ook de gemiste), dus een gemiste sessie geeft 3/4.
  * Nieuwste maand eerst.
  */
-export function summarizeMonths(workouts: { date: string; status: WorkoutStatus }[], today: string): MonthSummary[] {
+export function summarizeMonths(workouts: StatusRow[], today: string): MonthSummary[] {
   const thisWeek = startOfWeek(today);
   const months = new Map<string, MonthSummary>();
   for (const workout of workouts) {
-    const place = placeWorkout(workout.date);
-    const month = months.get(place.tab) ?? { tab: place.tab, year: place.year, month: place.month, weeks: [] };
+    const place = placeRow(workout);
+    const month = months.get(place.tab) ?? { tab: place.tab, year: place.year, month: place.month, importTab: place.importTab, weeks: [] };
+    month.importTab ??= place.importTab;
     let week = month.weeks.find((w) => w.week === place.week);
     if (!week) {
       const monday = startOfWeek(workout.date);

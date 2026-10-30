@@ -5,7 +5,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
-import { inRange, isUuid, parseInteger, text } from "@/lib/parse";
+import { inRange, isUuid, parseDecimal, parseInteger, text } from "@/lib/parse";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionState } from "@/components/ui/form";
 
@@ -65,6 +65,34 @@ export async function updateProgram(programId: string, _prev: ActionState, formD
   if (error) return { error: error.message };
   refresh(programId);
   return { success: "Opgeslagen." };
+}
+
+/**
+ * Blokopbouw aan- of uitzetten. Aan: elke week gaat de RPE van alle oefeningen
+ * gelijkmatig van rpe_start naar rpe_end (bv. 4 weken: 6, 7, 8, 9).
+ */
+export async function updateBlock(programId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  await requireRole("trainer");
+  if (!isUuid(programId)) return { error: "Onbekend schema." };
+
+  let values: { block_weeks: number | null; rpe_start: number | null; rpe_end: number | null } = { block_weeks: null, rpe_start: null, rpe_end: null };
+  if (formData.get("enabled") === "on") {
+    const weeks = parseInteger(String(formData.get("block_weeks") ?? ""));
+    const start = parseDecimal(String(formData.get("rpe_start") ?? ""));
+    const end = parseDecimal(String(formData.get("rpe_end") ?? ""));
+    if (!inRange(weeks, 2, 12)) return { error: "Een blok duurt 2 tot 12 weken." };
+    // RPE in stappen van 0,5, zoals in de RPE-tabel.
+    const validRpe = (value: number | null) => inRange(value, 5, 10) && value !== null && Number.isInteger(value * 2);
+    if (!validRpe(start) || !validRpe(end)) return { error: "RPE ligt tussen 5 en 10, in stappen van 0,5." };
+    if (start! > end!) return { error: "De RPE moet stijgen: de start-RPE mag niet hoger zijn dan de eind-RPE." };
+    values = { block_weeks: weeks, rpe_start: start, rpe_end: end };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("programs").update(values).eq("id", programId);
+  if (error) return { error: error.message };
+  refresh(programId);
+  return { success: values.block_weeks ? "Blokopbouw opgeslagen." : "Blokopbouw uitgezet: de RPE per oefening geldt weer." };
 }
 
 export async function deleteProgram(programId: string): Promise<ActionState> {

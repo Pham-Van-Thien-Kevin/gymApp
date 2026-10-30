@@ -4,7 +4,9 @@ import "server-only";
 // RLS in Postgres. Vraagt een trainer data van iemand die niet zijn cliënt is,
 // dan krijgt hij gewoon niets terug.
 import { createClient } from "@/lib/supabase/server";
-import { addDays, startOfWeek } from "@/lib/dates";
+import { addDays, startOfWeek, todayISO } from "@/lib/dates";
+import { currentBlock, withBlockRpe, type BlockSettings } from "@/lib/program";
+import type { StatusRow } from "@/lib/blocks";
 import type { ExportData, ExportWorkout } from "@/lib/export";
 import { suggestFromTarget } from "@/lib/rpe";
 import { buildProgressSeries, pickReferenceE1rm } from "@/lib/stats";
@@ -32,7 +34,7 @@ function fail(context: string, error: { message: string }): never {
 }
 
 const PROGRAM_SELECT = `
-  id, name, description,
+  id, name, description, block_weeks, rpe_start, rpe_end,
   program_days (
     id, name, position, weekday,
     program_exercises (
@@ -71,8 +73,15 @@ export async function getActiveAssignment(memberId: string): Promise<ActiveAssig
     .maybeSingle();
   if (error) fail("Schema laden", error);
   if (!data?.program) return null;
-  const assignment = data as unknown as ActiveAssignment;
-  return { ...assignment, program: { ...assignment.program, program_days: sortProgramDays(assignment.program.program_days) } };
+  const assignment = data as unknown as Omit<ActiveAssignment, "block">;
+  // Blokopbouw: de RPE van deze week vervangt de vaste RPE. Op één plek, zodat
+  // het schema, de logger en de voorgestelde gewichten allemaal dezelfde RPE gebruiken.
+  const block = currentBlock(numericBlock(assignment.program), assignment.start_date, todayISO());
+  return {
+    ...assignment,
+    block,
+    program: { ...assignment.program, program_days: withBlockRpe(sortProgramDays(assignment.program.program_days), block) },
+  };
 }
 
 /** Per cliënt: hoeveel sessies per week staan er in het actieve schema? (Voor "2 / 4 deze week".) */
@@ -462,10 +471,29 @@ export async function getUnreadNotificationCount(): Promise<number> {
   return error ? 0 : (count ?? 0);
 }
 
-/** Datum en status van je trainingen sinds een datum, voor het maandoverzicht (enkel deze twee kolommen). */
-export async function getWorkoutStatuses(memberId: string, since: string): Promise<{ date: string; status: WorkoutStatus }[]> {
+/**
+ * Datum, status en (bij een import) de maandtab en titel van je trainingen sinds
+ * een datum: genoeg voor het maandoverzicht en de teller op Home.
+ */
+export async function getWorkoutStatuses(memberId: string, since: string): Promise<StatusRow[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase.from("workouts").select("date, status").eq("member_id", memberId).gte("date", since).order("date");
+  const { data, error } = await supabase
+    .from("workouts")
+    .select("date, status, title, import_batch:import_batches ( sheet_tab )")
+    .eq("member_id", memberId)
+    .gte("date", since)
+    .order("date");
   if (error) fail("Maandoverzicht laden", error);
-  return data;
+  return (data as unknown as { date: string; status: WorkoutStatus; title: string | null; import_batch: { sheet_tab: string } | null }[]).map((row) => ({
+    date: row.date,
+    status: row.status,
+    title: row.title,
+    sheetTab: row.import_batch?.sheet_tab ?? null,
+  }));
+}
+
+/** Postgres numeric komt soms als tekst binnen: altijd naar getallen omzetten. */
+function numericBlock(program: BlockSettings): BlockSettings {
+  const num = (value: number | string | null) => (value === null ? null : Number(value));
+  return { block_weeks: num(program.block_weeks), rpe_start: num(program.rpe_start), rpe_end: num(program.rpe_end) };
 }

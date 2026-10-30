@@ -6,6 +6,7 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentProfile } from "@/lib/auth";
 import { getExercises, getMemberActivity } from "@/lib/data";
+import { addDays, startOfWeek } from "@/lib/dates";
 import { isUuid } from "@/lib/parse";
 import { createClient } from "@/lib/supabase/server";
 import { buildPayload } from "./build-payload";
@@ -34,6 +35,30 @@ async function checkAccess(memberId: unknown): Promise<string | null> {
   if (profile.role === "member") return memberId === profile.id ? null : "Je kan enkel voor jezelf importeren.";
   const [client] = await getMemberActivity(memberId);
   return client?.trainer_id === profile.id ? null : "Dit is niet een van je cliënten.";
+}
+
+/**
+ * Op welke maandag begon week 1 bij de vorige import van deze tabs? Afgeleid uit
+ * de sessies zelf: "Week 3 · Sessie 1" op maandag 26/10 → week 1 = 12/10.
+ * Zo blijft een opgeschoven blok opgeschoven bij een nieuwe import.
+ */
+async function previousWeek1Dates(memberId: string, tabs: string[]): Promise<Record<string, string>> {
+  if (tabs.length === 0) return {};
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("workouts")
+    .select("date, title, import_batch:import_batches!inner ( sheet_tab, member_id )")
+    .eq("member_id", memberId)
+    .in("import_batch.sheet_tab", tabs);
+  const result: Record<string, string> = {};
+  for (const row of (data ?? []) as unknown as { date: string; title: string | null; import_batch: { sheet_tab: string } }[]) {
+    const week = Number(row.title?.match(/^Week\s+(\d+)/)?.[1]);
+    if (!week) continue;
+    const week1 = addDays(startOfWeek(row.date), -7 * (week - 1));
+    const tab = row.import_batch.sheet_tab;
+    if (!result[tab] || week1 < result[tab]) result[tab] = week1;
+  }
+  return result;
 }
 
 async function readSource(formData: FormData): Promise<Result<{ bytes: Uint8Array; label: string; source: "link" | "upload" }>> {
@@ -90,11 +115,15 @@ export async function previewImport(formData: FormData): Promise<Result<{ previe
   const parsed = parse(source.bytes);
   if (!parsed.ok) return parsed;
 
-  const library = (await getExercises()).map(({ id, name, category }) => ({ id, name, category }));
+  const [exercises, previousWeek1] = await Promise.all([
+    getExercises(),
+    previousWeek1Dates(String(formData.get("member_id")), parsed.workbook.months.map((month) => month.tab)),
+  ]);
+  const library = exercises.map(({ id, name, category }) => ({ id, name, category }));
   const unknown = findUnknownNames(parsed.workbook, library);
   return {
     ok: true,
-    preview: { label: source.label, workbook: parsed.workbook, unknown, library, defaults: defaultChoices(parsed.workbook, unknown) },
+    preview: { label: source.label, workbook: parsed.workbook, unknown, library, defaults: defaultChoices(parsed.workbook, unknown, previousWeek1) },
   };
 }
 

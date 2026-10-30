@@ -16,6 +16,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { Badge, Card, PageHeader, Section } from "@/components/ui/layout";
 import { CheckinList } from "@/components/checkin-list";
 import { ProgramView } from "@/components/program-view";
+import { BlockProgress } from "@/components/block-progress";
 import { WorkoutList } from "@/components/workout-list";
 import { BodyWeightPanel } from "@/components/progress/body-weight-panel";
 import { ProgressPanel } from "@/components/progress/progress-panel";
@@ -101,6 +102,7 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/t
                 <span className="font-semibold text-chalk">{assignment.program.name}</span> · actief sinds{" "}
                 {formatLongDate(assignment.start_date)}
               </p>
+              <BlockProgress assignment={assignment} />
               <ProgramView days={assignment.program.program_days} loads={loads} />
             </>
           ) : (

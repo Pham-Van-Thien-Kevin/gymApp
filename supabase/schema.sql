@@ -66,7 +66,8 @@ drop function if exists
   public.import_sheet,
   public.notify_workout_completed,
   public.notify_program_assigned,
-  public.notify_feedback
+  public.notify_feedback,
+  public.shift_import_block
   cascade;
 drop type if exists public.user_role, public.rating, public.workout_status, public.import_source cascade;
 
@@ -118,6 +119,11 @@ create table public.programs (
   trainer_id uuid not null references public.profiles (id) on delete cascade,
   name text not null check (length(trim(name)) > 0),
   description text,
+  -- Blokopbouw (optioneel): elke week gaat de RPE van alle oefeningen omhoog,
+  -- van rpe_start in week 1 tot rpe_end in de laatste week (zie src/lib/program.ts).
+  block_weeks smallint check (block_weeks between 2 and 12),
+  rpe_start numeric(3, 1) check (rpe_start between 5 and 10),
+  rpe_end numeric(3, 1) check (rpe_end between 5 and 10),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -1109,6 +1115,38 @@ grant execute on function public.assign_program(uuid, uuid, date) to authenticat
 grant execute on function public.import_sheet(jsonb) to authenticated;
 grant execute on function public.log_workout(jsonb) to authenticated;
 
+
+-- Een geïmporteerde maand een of meer weken opschuiven, als week 1 in de sheet
+-- later (of vroeger) begon dan de import aannam. Alles van die maandtab schuift
+-- mee: de sessies (ook al afgewerkte) en de check-ins. Eén transactie.
+-- security invoker: RLS geldt; enkel de sporter zelf, enkel hele weken.
+create or replace function public.shift_import_block(p_sheet_tab text, p_days integer)
+returns integer
+language plpgsql set search_path = ''
+as $$
+declare
+  n integer;
+begin
+  if public.current_app_role() is distinct from 'member' then
+    raise exception 'Enkel de sporter kan zijn eigen blok opschuiven.';
+  end if;
+  if p_days = 0 or p_days % 7 <> 0 or abs(p_days) > 28 then
+    raise exception 'Schuif per hele week, maximaal 4 weken.';
+  end if;
+
+  update public.workouts w set date = w.date + p_days
+  from public.import_batches b
+  where b.id = w.import_batch_id and b.member_id = (select auth.uid()) and b.sheet_tab = p_sheet_tab;
+  get diagnostics n = row_count;
+
+  update public.weekly_checkins c set week_start = c.week_start + p_days
+  from public.import_batches b
+  where b.id = c.import_batch_id and b.member_id = (select auth.uid()) and b.sheet_tab = p_sheet_tab;
+
+  return n;
+end;
+$$;
+grant execute on function public.shift_import_block(text, integer) to authenticated;
 
 -- 8b. MELDINGEN ---------------------------------------------------------------
 -- Meldingen in de app: "Noor heeft Dag 2 afgewerkt", "Nieuw schema van je
