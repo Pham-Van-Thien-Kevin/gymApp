@@ -13,6 +13,11 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: "#0f0f0f",
     theme_color: "#0f0f0f",
     lang: "nl",
-    icons: [{ src: "/icon.svg", sizes: "any", type: "image/svg+xml" }],
+    // Het icoon op je beginscherm (Android). Op iPhone gebruikt Safari src/app/apple-icon.png.
+    // Het icoontje in je browsertab blijft src/app/icon.svg.
+    icons: [
+      { src: "/app-icon-192.png", sizes: "192x192", type: "image/png" },
+      { src: "/app-icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
   };
 }
