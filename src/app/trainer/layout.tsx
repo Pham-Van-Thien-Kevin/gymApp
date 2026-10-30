@@ -3,6 +3,8 @@
 import type { Metadata } from "next";
 import { requireRole } from "@/lib/auth";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { NotificationBell } from "@/components/notifications/notification-bell";
+import { getUnreadNotificationCount } from "@/lib/data";
 import { APP_NAME } from "@/lib/config";
 import { TrainerNav } from "./trainer-nav";
 import { signOut } from "@/app/(auth)/actions";
@@ -12,7 +14,7 @@ import { signOut } from "@/app/(auth)/actions";
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 export default async function TrainerLayout({ children }: LayoutProps<"/trainer">) {
-  const profile = await requireRole("trainer");
+  const [profile, unread] = await Promise.all([requireRole("trainer"), getUnreadNotificationCount()]);
 
   return (
     <div className="flex min-h-full flex-1 flex-col lg:flex-row">
@@ -28,6 +30,7 @@ export default async function TrainerLayout({ children }: LayoutProps<"/trainer"
           <p className="hidden text-sm text-chalk/60 lg:mt-1 lg:block">Trainer</p>
           {/* Op kleine schermen is de zijbalk-footer verborgen: uitloggen staat dan hier. */}
           <div className="flex items-center gap-1 lg:hidden">
+            <NotificationBell userId={profile.id} initialCount={unread} href="/trainer/meldingen" />
             <ThemeToggle />
             <form action={signOut}>
               <button type="submit" className="min-h-10 px-2 text-sm text-chalk/70 underline underline-offset-4 hover:text-chalk">
@@ -48,7 +51,10 @@ export default async function TrainerLayout({ children }: LayoutProps<"/trainer"
                 Uitloggen
               </button>
             </form>
-            <ThemeToggle />
+            <div className="flex items-center">
+              <NotificationBell userId={profile.id} initialCount={unread} href="/trainer/meldingen" />
+              <ThemeToggle />
+            </div>
           </div>
         </div>
       </aside>

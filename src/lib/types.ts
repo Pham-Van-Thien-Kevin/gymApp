@@ -170,3 +170,15 @@ export type PreviousPerformance = {
   date: string;
   sets: { reps: number | null; weight: number | null; rpe: number | null }[];
 };
+
+export type NotificationKind = "workout_completed" | "program_assigned" | "feedback";
+
+export type AppNotification = {
+  id: string;
+  kind: NotificationKind;
+  title: string;
+  body: string | null;
+  link: string | null;
+  read_at: string | null;
+  created_at: string;
+};

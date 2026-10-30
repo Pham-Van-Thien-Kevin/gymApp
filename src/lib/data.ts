@@ -9,6 +9,7 @@ import { suggestFromTarget } from "@/lib/rpe";
 import { buildProgressSeries, pickReferenceE1rm } from "@/lib/stats";
 import type {
   ActiveAssignment,
+  AppNotification,
   BodyMetric,
   Checkin,
   Exercise,
@@ -70,6 +71,23 @@ export async function getActiveAssignment(memberId: string): Promise<ActiveAssig
   if (!data?.program) return null;
   const assignment = data as unknown as ActiveAssignment;
   return { ...assignment, program: { ...assignment.program, program_days: sortProgramDays(assignment.program.program_days) } };
+}
+
+/** Per cliënt: hoeveel sessies per week staan er in het actieve schema? (Voor "2 / 4 deze week".) */
+export async function getPlannedSessionsPerWeek(): Promise<Record<string, number>> {
+  const supabase = await createClient();
+  // RLS geeft een trainer enkel de schema's van eigen cliënten.
+  const { data, error } = await supabase
+    .from("program_assignments")
+    .select("member_id, program:programs ( program_days(count) )")
+    .eq("active", true);
+  if (error) fail("Schema's laden", error);
+  return Object.fromEntries(
+    (data as unknown as { member_id: string; program: { program_days: { count: number }[] } | null }[]).map((row) => [
+      row.member_id,
+      row.program?.program_days?.[0]?.count ?? 0,
+    ]),
+  );
 }
 
 export async function getProgramDay(dayId: string): Promise<ProgramDay | null> {
@@ -415,4 +433,24 @@ export async function getExportData(memberId: string, name: string): Promise<Exp
   ]);
   // Oud → nieuw, net zoals de trainingen.
   return { name, workouts, strengthTests, bodyMetrics: [...bodyMetrics].sort((a, b) => a.date.localeCompare(b.date)), checkins: [...checkins].reverse() };
+}
+
+/** Je laatste meldingen, nieuwste eerst (RLS: enkel de jouwe). */
+export async function getNotifications(limit = 30): Promise<AppNotification[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("notifications")
+    .select("id, kind, title, body, link, read_at, created_at")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) fail("Meldingen laden", error);
+  return data as AppNotification[];
+}
+
+/** Aantal ongelezen meldingen voor de bel. head: true = enkel tellen, geen rijen ophalen. */
+export async function getUnreadNotificationCount(): Promise<number> {
+  const supabase = await createClient();
+  const { count, error } = await supabase.from("notifications").select("id", { count: "exact", head: true }).is("read_at", null);
+  // Een fout bij de bel mag nooit de hele pagina breken: dan gewoon 0.
+  return error ? 0 : (count ?? 0);
 }

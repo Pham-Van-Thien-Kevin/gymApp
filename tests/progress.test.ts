@@ -61,3 +61,16 @@ describe("combineByDate met detail", () => {
     expect(row).toEqual({ date: "2026-10-05", squat: 140, squatDetail: "140 kg × 3" });
   });
 });
+
+describe("weeklyTonnage", () => {
+  it("telt gewicht × reps op per week (maandag)", async () => {
+    const { weeklyTonnage } = await import("@/lib/stats");
+    const row = (date: string, weight: number, reps: number): SetLogRow => ({
+      exercise_id: "e1", workout_id: "w1", date, set_number: 1, reps, weight, rpe: null, reps_estimated: false,
+    });
+    expect(weeklyTonnage([row("2026-10-26", 100, 5), row("2026-10-28", 100, 3), row("2026-11-02", 50, 10)])).toEqual([
+      { date: "2026-10-26", value: 800 },
+      { date: "2026-11-02", value: 500 },
+    ]);
+  });
+});

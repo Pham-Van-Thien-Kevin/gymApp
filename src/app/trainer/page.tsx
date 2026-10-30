@@ -3,7 +3,7 @@
 // en de laatste check-in (RLS beperkt het tot je eigen cliënten).
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
-import { getMemberActivity } from "@/lib/data";
+import { getMemberActivity, getPlannedSessionsPerWeek } from "@/lib/data";
 import { formatDate, formatWeek, relativeDays, todayISO } from "@/lib/dates";
 import { clientFlags, INACTIVE_AFTER_DAYS, type ClientFlags } from "@/lib/flags";
 import type { MemberActivity } from "@/lib/types";
@@ -14,7 +14,7 @@ import { InviteCode } from "./invite-code";
 export default async function TrainerOverview() {
   const trainer = await requireRole("trainer");
   const today = todayISO();
-  const activity = await getMemberActivity();
+  const [activity, plannedPerWeek] = await Promise.all([getMemberActivity(), getPlannedSessionsPerWeek()]);
 
   // Wie aandacht nodig heeft, staat bovenaan.
   const clients = activity
@@ -55,7 +55,7 @@ export default async function TrainerOverview() {
                 <tr className="border-b border-chalk/15">
                   <th scope="col" className="py-3 font-medium">Cliënt</th>
                   <th scope="col" className="font-medium">Laatste training</th>
-                  <th scope="col" className="font-medium">Deze week</th>
+                  <th scope="col" className="font-medium">Deze week (schema)</th>
                   <th scope="col" className="font-medium">Laatste check-in</th>
                   <th scope="col" className="font-medium">
                     <span className="sr-only">Status</span>
@@ -73,7 +73,9 @@ export default async function TrainerOverview() {
                     <td className="pr-4">
                       <LastWorkout client={client} flags={flags} />
                     </td>
-                    <td className="pr-4 text-xl font-bold tabular-nums">{client.workouts_this_week}</td>
+                    <td className="pr-4">
+                      <Adherence done={client.workouts_this_week} planned={plannedPerWeek[client.member_id] ?? 0} />
+                    </td>
                     <td className="pr-4">
                       <LastCheckin client={client} />
                     </td>
@@ -105,7 +107,9 @@ export default async function TrainerOverview() {
                       </div>
                       <div>
                         <dt className="text-chalk/60">Deze week</dt>
-                        <dd className="font-bold tabular-nums">{client.workouts_this_week}</dd>
+                        <dd>
+                          <Adherence done={client.workouts_this_week} planned={plannedPerWeek[client.member_id] ?? 0} />
+                        </dd>
                       </div>
                       <div className="col-span-2">
                         <dt className="text-chalk/60">Laatste check-in</dt>
@@ -122,6 +126,25 @@ export default async function TrainerOverview() {
         </>
       )}
     </>
+  );
+}
+
+/**
+ * Trainingen deze week tegenover het schema: "2 / 4" met een balkje. Zonder
+ * schema enkel het aantal. De balk is versiering (aria-hidden); de tekst zegt alles.
+ */
+function Adherence({ done, planned }: { done: number; planned: number }) {
+  if (planned === 0) return <span className="text-xl font-bold tabular-nums">{done}</span>;
+  return (
+    <span className="flex min-w-24 flex-col gap-1">
+      <span className="tabular-nums">
+        <span className="text-xl font-bold">{done}</span>
+        <span className="text-chalk/60"> / {planned}</span>
+      </span>
+      <span aria-hidden="true" className="h-1.5 w-24 overflow-hidden rounded-full bg-chalk/15">
+        <span className="block h-full rounded-full bg-accent" style={{ width: `${Math.min(100, (done / planned) * 100)}%` }} />
+      </span>
+    </span>
   );
 }
 

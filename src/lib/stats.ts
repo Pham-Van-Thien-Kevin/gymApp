@@ -68,6 +68,20 @@ export function buildProgressSeries(rows: SetLogRow[]): ProgressPoint[] {
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
+/**
+ * Tonnage per week (maandag als datum): Σ gewicht × reps van alle sets.
+ * Zo zie je of een zwaar blok ook echt meer werk was.
+ */
+export function weeklyTonnage(rows: SetLogRow[]): { date: string; value: number }[] {
+  const byWeek = new Map<string, number>();
+  for (const row of rows) {
+    if (!row.weight || !row.reps) continue;
+    const week = startOfWeek(row.date);
+    byWeek.set(week, (byWeek.get(week) ?? 0) + row.weight * row.reps);
+  }
+  return [...byWeek.entries()].map(([date, value]) => ({ date, value: Math.round(value) })).sort((a, b) => a.date.localeCompare(b.date));
+}
+
 type SeriesPoint = { date: string; value: number; detail?: string };
 
 /**

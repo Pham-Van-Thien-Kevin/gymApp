@@ -112,6 +112,7 @@ Wil je `liftlog.jouwdomein.be` in plaats van `….vercel.app`? De app blijft op 
 | Bestand | Wat |
 | --- | --- |
 | `2026-10-30-geplande-trainingen-afwerken.sql` | Geplande sessies uit je sheet afwerken in de app |
+| `2026-10-30-meldingen.sql` | Meldingen (afgewerkte training, nieuw schema, feedback) met Realtime |
 
 ## Scripts
 

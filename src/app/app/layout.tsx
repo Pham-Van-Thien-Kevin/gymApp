@@ -3,6 +3,8 @@
 import type { Metadata } from "next";
 import { requireRole } from "@/lib/auth";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { NotificationBell } from "@/components/notifications/notification-bell";
+import { getUnreadNotificationCount } from "@/lib/data";
 import { APP_NAME } from "@/lib/config";
 import { MemberNav } from "./member-nav";
 
@@ -13,7 +15,7 @@ export const metadata: Metadata = { robots: { index: false, follow: false } };
 export default async function MemberLayout({ children }: LayoutProps<"/app">) {
   // Tweede controle naast de proxy: is dit écht een member? Zo niet, dan
   // stuurt requireRole door en wordt geen enkele pagina hieronder gerenderd.
-  await requireRole("member");
+  const [profile, unread] = await Promise.all([requireRole("member"), getUnreadNotificationCount()]);
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
@@ -28,6 +30,7 @@ export default async function MemberLayout({ children }: LayoutProps<"/app">) {
           </p>
           <div className="flex items-center gap-1">
             <MemberNav variant="top" />
+            <NotificationBell userId={profile.id} initialCount={unread} href="/app/meldingen" />
             <ThemeToggle />
           </div>
         </div>

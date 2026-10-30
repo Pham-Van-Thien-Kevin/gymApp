@@ -7,7 +7,7 @@
 import { getLoggedExercises, getSetLog, getSetLogs } from "@/lib/data";
 import { BIG_THREE, BIG_THREE_VIEW, bigThreeLift, type BigThreeLift } from "@/lib/exercises";
 import { roundToIncrement } from "@/lib/rpe";
-import { buildProgressSeries, combineByDate, formatKg, formatLoad, pickReferenceE1rm, type ProgressPoint } from "@/lib/stats";
+import { buildProgressSeries, combineByDate, formatKg, formatLoad, pickReferenceE1rm, weeklyTonnage, type ProgressPoint } from "@/lib/stats";
 import { formatDate, todayISO } from "@/lib/dates";
 import { EmptyState, Stat } from "@/components/ui/layout";
 import { TrendChart, type TrendSeries } from "@/components/charts/trend-chart";
@@ -94,6 +94,17 @@ async function BigThreeChart({ memberId, options }: { memberId: string; options:
         series={lifts.map((lift) => ({ key: lift, label: LIFT_LABEL[lift], detailKey: `${lift}Detail`, ...LIFT_STYLE[lift] }))}
       />
       <p className="text-sm text-chalk/60">De grafiek toont je zwaarste set per training. Tik op een punt voor reps en RPE.</p>
+
+      <h3 className="mt-4 font-semibold">Volume per week</h3>
+      <p className="-mt-3 text-sm text-chalk/60">Tonnage: gewicht × reps van al je sets, per week opgeteld.</p>
+      <TrendChart
+        title="Tonnage per week: squat, bench en deadlift"
+        height={200}
+        data={combineByDate(
+          Object.fromEntries(lifts.map((lift) => [lift, weeklyTonnage(rows.filter((row) => idsByLift[lift].includes(row.exercise_id)))])),
+        )}
+        series={lifts.map((lift) => ({ key: lift, label: LIFT_LABEL[lift], ...LIFT_STYLE[lift] }))}
+      />
     </>
   );
 }
