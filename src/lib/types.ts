@@ -61,6 +61,8 @@ export type WorkoutListItem = {
   status: WorkoutStatus;
   duration_minutes: number | null;
   import_batch_id: string | null;
+  /** Maandtab van de import ("OCT2026"), om te weten of het blok verlopen is. */
+  sheet_tab: string | null;
   exercise_count: number;
   feedback_count: number;
 };

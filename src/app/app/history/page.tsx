@@ -3,7 +3,7 @@
 // geplande sessies uit je sheet die je nog kan afwerken, en de export naar Excel.
 import type { Metadata } from "next";
 import { requireRole } from "@/lib/auth";
-import { getPlannedWorkouts, getWorkoutStatuses, getWorkouts } from "@/lib/data";
+import { getCurrentBlockTab, getPlannedWorkouts, getWorkoutStatuses, getWorkouts } from "@/lib/data";
 import { summarizeMonths } from "@/lib/blocks";
 import { MonthOverview } from "@/components/month-overview";
 import { shiftMonth } from "./actions";
@@ -21,11 +21,12 @@ export default async function HistoryPage({ searchParams }: PageProps<"/app/hist
   const { pagina } = await searchParams;
   const page = Math.max(1, Number(pagina) || 1);
   const today = todayISO();
-  const [{ items, total }, planned, statuses] = await Promise.all([
+  const [{ items, total }, planned, statuses, currentBlock] = await Promise.all([
     getWorkouts(profile.id, { limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE }),
-    getPlannedWorkouts(profile.id, today),
+    getPlannedWorkouts(profile.id, 20),
     // Twee maanden terug is genoeg voor "deze maand en de vorige".
     getWorkoutStatuses(profile.id, addDays(today, -70)),
+    getCurrentBlockTab(profile.id),
   ]);
   const months = summarizeMonths(statuses, today).slice(0, 2);
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -46,12 +47,12 @@ export default async function HistoryPage({ searchParams }: PageProps<"/app/hist
       />
       {page === 1 && months.length > 0 && (
         <Section title="Per maand">
-          <MonthOverview months={months} shiftAction={shiftMonth} />
+          <MonthOverview months={months} shiftAction={shiftMonth} currentBlock={currentBlock} />
         </Section>
       )}
       {page === 1 && planned.total > 0 && (
         <Section title={`Nog af te werken (${planned.total})`}>
-          <p className="-mt-2 mb-4 text-sm text-chalk/60">Gepland voor deze week, nog niet gelogd. Een gemiste sessie uit een voorbije week kan je niet meer inhalen; de volgende week gaat maandag om 0:00 open.</p>
+          <p className="-mt-2 mb-4 text-sm text-chalk/60">Uit je sheet, nog niet gelogd. Ze blijven open tot je aan een nieuwer blok begint. Tip: klik op een week hierboven.</p>
           <ul className="divide-y divide-chalk/15 border-y border-chalk/15">
             {planned.items.map((workout) => (
               <li key={workout.id} className="flex min-h-16 items-center gap-4 py-3 sm:px-2">
@@ -73,7 +74,7 @@ export default async function HistoryPage({ searchParams }: PageProps<"/app/hist
           </ul>
           {planned.total > planned.items.length && (
             <p className="mt-3 text-sm text-chalk/60">
-              Nog {planned.total - planned.items.length} geplande sessies deze week.
+              Nog {planned.total - planned.items.length} sessies: klik op een week hierboven.
             </p>
           )}
         </Section>
@@ -93,7 +94,7 @@ export default async function HistoryPage({ searchParams }: PageProps<"/app/hist
           Log je eerste training of importeer je oude trainingen.
         </EmptyState>
       ) : (
-        <WorkoutList workouts={items} hrefBase="/app/history" />
+        <WorkoutList workouts={items} hrefBase="/app/history" currentBlock={currentBlock} />
       )}
       {pages > 1 && (
         <nav aria-label="Paginering" className="mt-6 flex items-center justify-between gap-4">

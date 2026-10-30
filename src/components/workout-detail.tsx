@@ -2,8 +2,7 @@
 // trainersfeedback. Gedeeld door de historiek (member) en het trainerdashboard.
 import type { ReactNode } from "react";
 import { Badge, Card, Section } from "@/components/ui/layout";
-import { formatDate, formatLongDate, startOfWeek, todayISO } from "@/lib/dates";
-import { plannedState } from "@/lib/blocks";
+import { formatDate, formatLongDate } from "@/lib/dates";
 import { formatKg, formatNumber } from "@/lib/stats";
 import type { WorkoutDetail as Workout } from "@/lib/types";
 
@@ -15,6 +14,8 @@ type Props = {
   /** Trainer-weergave: eigen feedback kan verwijderd worden via deze Server Action. */
   deleteFeedbackAction?: (feedbackId: string) => Promise<void>;
   currentTrainerId?: string;
+  /** Geplande sessie uit een verlopen blok (er is al een nieuwer blok begonnen). */
+  expired?: boolean;
 };
 
 export function WorkoutDetail({
@@ -23,6 +24,7 @@ export function WorkoutDetail({
   feedbackTitle = "Feedback van je trainer",
   deleteFeedbackAction,
   currentTrainerId,
+  expired = false,
 }: Props) {
   const performed = workout.workout_exercises.filter((we) => we.performed);
   const totalSets = performed.reduce((sum, we) => sum + we.workout_sets.length, 0);
@@ -36,17 +38,7 @@ export function WorkoutDetail({
       <div className="mb-6 flex flex-wrap items-center gap-2 text-sm text-chalk/70">
         <span>{formatLongDate(workout.date)}</span>
         {workout.duration_minutes ? <span>· {workout.duration_minutes} min</span> : null}
-        {workout.status === "planned" && (
-          <Badge>
-            {
-              {
-                missed: "Gemist: niet uitgevoerd in die week",
-                open: "Gepland voor deze week",
-                locked: `Beschikbaar vanaf ${formatLongDate(startOfWeek(workout.date))}`,
-              }[plannedState(workout.date, todayISO())]
-            }
-          </Badge>
-        )}
+        {workout.status === "planned" && <Badge>{expired ? "Verlopen: je bent aan een nieuwer blok begonnen" : "Nog te doen"}</Badge>}
         {workout.import_batch && <Badge>Import · {workout.import_batch.sheet_tab}</Badge>}
       </div>
 

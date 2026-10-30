@@ -2,7 +2,7 @@
 // dezelfde componenten als de gebruikersapp; RLS zorgt dat de trainer enkel
 // data van eigen cliënten krijgt.
 import Link from "next/link";
-import { getActiveAssignment, getBodyMetrics, getCheckins, getImportBatches, getProgramLoads, getStrengthTests, getWorkouts } from "@/lib/data";
+import { getActiveAssignment, getBodyMetrics, getCheckins, getCurrentBlockTab, getImportBatches, getProgramLoads, getStrengthTests, getWorkouts } from "@/lib/data";
 import { formatLongDate, todayISO } from "@/lib/dates";
 import { clientFlags } from "@/lib/flags";
 import { isUuid } from "@/lib/parse";
@@ -40,7 +40,7 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/t
   const flags = clientFlags(client, todayISO());
 
   const supabase = await createClient();
-  const [assignment, workouts, tests, metrics, checkins, imports, programs] = await Promise.all([
+  const [assignment, workouts, tests, metrics, checkins, imports, programs, currentBlock] = await Promise.all([
     getActiveAssignment(id),
     getWorkouts(id, { limit: 15 }),
     getStrengthTests(id),
@@ -48,6 +48,7 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/t
     getCheckins(id, 12),
     getImportBatches(id),
     supabase.from("programs").select("id, name").eq("trainer_id", trainer.id).order("name"),
+    getCurrentBlockTab(id),
   ]);
   // Voorgestelde gewichten op basis van de geschatte 1RM's van deze cliënt
   // (RLS laat de trainer de sets van eigen cliënten lezen).
@@ -137,7 +138,7 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/t
         </Section>
 
         <Section id="historiek" title="Historiek" className="scroll-mt-16">
-          <WorkoutList workouts={workouts.items} hrefBase={`/trainer/clients/${id}/workouts`} emptyText="Nog geen trainingen." />
+          <WorkoutList workouts={workouts.items} hrefBase={`/trainer/clients/${id}/workouts`} emptyText="Nog geen trainingen." currentBlock={currentBlock} />
           {workouts.total > workouts.items.length && (
             <p className="mt-3 text-sm text-chalk/60">Laatste {workouts.items.length} van {workouts.total} trainingen.</p>
           )}

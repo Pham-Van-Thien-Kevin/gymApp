@@ -12,6 +12,7 @@ import { notFound, redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import {
   getActiveAssignment,
+  getCurrentBlockTab,
   getExercises,
   getLiftStats,
   getPreviousPerformances,
@@ -21,7 +22,7 @@ import {
   getWorkoutDetail,
 } from "@/lib/data";
 import { addDays, formatDate, todayISO } from "@/lib/dates";
-import { plannedState } from "@/lib/blocks";
+import { isExpiredBlock } from "@/lib/blocks";
 import { uniqueByName } from "@/lib/exercises";
 import { isUuid } from "@/lib/parse";
 import { pickTodaysDay, weekdayLabel } from "@/lib/program";
@@ -41,15 +42,15 @@ export default async function LogPage({ searchParams }: PageProps<"/app/log">) {
     // RLS verbergt andermans trainingen al; we controleren ook dat ze nog gepland is.
     const planned = await getWorkoutDetail(gepland);
     if (!planned || planned.member_id !== profile.id) notFound();
-    // Enkel een geplande sessie van DEZE week. Al afgewerkt, gemist (voorbije week)
-    // of nog op slot (volgende week): terug naar de training, die zegt waarom.
-    if (planned.status !== "planned" || plannedState(planned.date, today) !== "open") redirect(`/app/history/${planned.id}`);
+    // Al afgewerkt, of uit een verlopen blok: terug naar de training, die zegt waarom.
+    const current = await getCurrentBlockTab(profile.id);
+    if (planned.status !== "planned" || isExpiredBlock(planned.import_batch?.sheet_tab, current)) redirect(`/app/history/${planned.id}`);
     return <LogPlanned memberId={profile.id} today={today} planned={planned} />;
   }
 
   if (!dayId && vrij !== "1") {
-    // Eerst je sheet: geplande sessies van deze week die je nog moet doen.
-    const planned = await getPlannedWorkouts(profile.id, today);
+    // Eerst je sheet: sessies uit je huidige (of een nieuwer) blok die je nog moet doen.
+    const planned = await getPlannedWorkouts(profile.id, 20);
     if (planned.total > 0) return <ChoosePlanned sessions={planned.items} />;
 
     const assignment = await getActiveAssignment(profile.id);
@@ -136,14 +137,14 @@ async function LogPlanned({ memberId, today, planned }: { memberId: string; toda
   );
 }
 
-/** Deze week nog te doen uit je sheet: kies een sessie en werk ze meteen af. */
+/** Nog te doen uit je sheet: kies een sessie en werk ze meteen af. */
 function ChoosePlanned({ sessions }: { sessions: WorkoutListItem[] }) {
   return (
     <>
       <PageHeader
         eyebrow="Training loggen"
-        title="Deze week te doen"
-        description={sessions.length === 1 ? "Nog één sessie uit je schema deze week." : `Nog ${sessions.length} sessies uit je schema deze week.`}
+        title="Nog te doen"
+        description={sessions.length === 1 ? "Nog één sessie uit je schema." : `Nog ${sessions.length} sessies uit je schema, in volgorde.`}
       />
       <ul className="flex flex-col gap-3">
         {sessions.map((session, index) => (

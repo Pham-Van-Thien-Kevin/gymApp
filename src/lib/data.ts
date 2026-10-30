@@ -4,9 +4,9 @@ import "server-only";
 // RLS in Postgres. Vraagt een trainer data van iemand die niet zijn cliënt is,
 // dan krijgt hij gewoon niets terug.
 import { createClient } from "@/lib/supabase/server";
-import { addDays, startOfWeek, todayISO } from "@/lib/dates";
+import { todayISO } from "@/lib/dates";
 import { currentBlock, withBlockRpe, type BlockSettings } from "@/lib/program";
-import type { StatusRow } from "@/lib/blocks";
+import { currentBlockTab, isExpiredBlock, type StatusRow } from "@/lib/blocks";
 import type { ExportData, ExportWorkout } from "@/lib/export";
 import { suggestFromTarget } from "@/lib/rpe";
 import { buildProgressSeries, pickReferenceE1rm } from "@/lib/stats";
@@ -146,7 +146,7 @@ export async function getWorkouts(
   // "workout_exercises(count)" laat PostgREST tellen in plaats van alle rijen op te halen.
   const { data, error, count } = await supabase
     .from("workouts")
-    .select("id, date, title, status, duration_minutes, import_batch_id, workout_exercises(count), workout_feedback(count)", {
+    .select("id, date, title, status, duration_minutes, import_batch_id, import_batch:import_batches(sheet_tab), workout_exercises(count), workout_feedback(count)", {
       count: "exact",
     })
     .eq("member_id", memberId)
@@ -162,40 +162,57 @@ export async function getWorkouts(
     status: row.status,
     duration_minutes: row.duration_minutes,
     import_batch_id: row.import_batch_id,
+    sheet_tab: (row.import_batch as unknown as { sheet_tab: string } | null)?.sheet_tab ?? null,
     exercise_count: row.workout_exercises?.[0]?.count ?? 0,
     feedback_count: row.workout_feedback?.[0]?.count ?? 0,
   }));
   return { items, total: count ?? items.length };
 }
 
-/**
- * Geplande sessies die je nu kan afwerken: enkel die van DEZE week (vroegste
- * eerst). Voorbije weken zijn gemist, latere weken nog op slot (zie plannedState).
- */
-export async function getPlannedWorkouts(memberId: string, today: string, limit = 8): Promise<{ items: WorkoutListItem[]; total: number }> {
+/** Je huidige blok: de nieuwste maandtab waarvan je al een sessie afwerkte (zie currentBlockTab). */
+export async function getCurrentBlockTab(memberId: string): Promise<string | null> {
   const supabase = await createClient();
-  const { data, error, count } = await supabase
+  const { data, error } = await supabase
     .from("workouts")
-    .select("id, date, title, status, duration_minutes, import_batch_id, workout_exercises(count)", { count: "exact" })
+    .select("date, status, title, planned_title, planned_tab, import_batch:import_batches ( sheet_tab )")
     .eq("member_id", memberId)
-    .eq("status", "planned")
-    .gte("date", startOfWeek(today))
-    .lt("date", addDays(startOfWeek(today), 7))
-    .order("date")
-    .limit(limit);
+    .eq("status", "completed");
+  if (error) fail("Blok laden", error);
+  return currentBlockTab((data as unknown as BlockRow[]).map(toStatusRow));
+}
+
+/**
+ * Geplande sessies die je nog kan afwerken (vroegste eerst): alles uit je huidige
+ * blok en nieuwere blokken. Sessies uit een ouder blok zijn verlopen.
+ */
+export async function getPlannedWorkouts(memberId: string, limit = 8): Promise<{ items: WorkoutListItem[]; total: number }> {
+  const supabase = await createClient();
+  const [{ data, error }, current] = await Promise.all([
+    supabase
+      .from("workouts")
+      .select("id, date, title, status, duration_minutes, import_batch_id, import_batch:import_batches(sheet_tab), workout_exercises(count)")
+      .eq("member_id", memberId)
+      .eq("status", "planned")
+      .order("date")
+      .limit(200),
+    getCurrentBlockTab(memberId),
+  ]);
   if (error) fail("Geplande trainingen laden", error);
 
-  const items = data.map((row) => ({
-    id: row.id,
-    date: row.date,
-    title: row.title,
-    status: row.status,
-    duration_minutes: row.duration_minutes,
-    import_batch_id: row.import_batch_id,
-    exercise_count: row.workout_exercises?.[0]?.count ?? 0,
-    feedback_count: 0,
-  }));
-  return { items, total: count ?? items.length };
+  const open = data
+    .map((row) => ({
+      id: row.id,
+      date: row.date,
+      title: row.title,
+      status: row.status,
+      duration_minutes: row.duration_minutes,
+      import_batch_id: row.import_batch_id,
+      sheet_tab: (row.import_batch as unknown as { sheet_tab: string } | null)?.sheet_tab ?? null,
+      exercise_count: row.workout_exercises?.[0]?.count ?? 0,
+      feedback_count: 0,
+    }))
+    .filter((item) => !isExpiredBlock(item.sheet_tab, current));
+  return { items: open.slice(0, limit), total: open.length };
 }
 
 export async function getWorkoutDetail(workoutId: string): Promise<WorkoutDetail | null> {
@@ -479,21 +496,71 @@ export async function getWorkoutStatuses(memberId: string, since: string): Promi
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("workouts")
-    .select("date, status, title, import_batch:import_batches ( sheet_tab )")
+    .select("date, status, title, planned_title, planned_tab, import_batch:import_batches ( sheet_tab )")
     .eq("member_id", memberId)
     .gte("date", since)
     .order("date");
   if (error) fail("Maandoverzicht laden", error);
-  return (data as unknown as { date: string; status: WorkoutStatus; title: string | null; import_batch: { sheet_tab: string } | null }[]).map((row) => ({
-    date: row.date,
-    status: row.status,
-    title: row.title,
-    sheetTab: row.import_batch?.sheet_tab ?? null,
-  }));
+  return (data as unknown as BlockRow[]).map(toStatusRow);
 }
 
 /** Postgres numeric komt soms als tekst binnen: altijd naar getallen omzetten. */
 function numericBlock(program: BlockSettings): BlockSettings {
   const num = (value: number | string | null) => (value === null ? null : Number(value));
   return { block_weeks: num(program.block_weeks), rpe_start: num(program.rpe_start), rpe_end: num(program.rpe_end) };
+}
+
+type BlockRow = {
+  date: string;
+  status: WorkoutStatus;
+  title: string | null;
+  planned_title: string | null;
+  planned_tab: string | null;
+  import_batch: { sheet_tab: string } | null;
+};
+
+/**
+ * Bij welk blok en welke week hoort een training? Uit de import, of (voor een in
+ * de app afgewerkte sessie) uit wat log_workout bij het afwerken onthield.
+ */
+function toStatusRow(row: BlockRow): StatusRow {
+  return {
+    date: row.date,
+    status: row.status,
+    title: row.planned_title ?? row.title,
+    sheetTab: row.import_batch?.sheet_tab ?? row.planned_tab,
+  };
+}
+
+export type BlockWeekSession = { id: string; date: string; title: string; status: WorkoutStatus; exercise_count: number; session: number };
+
+/** Alle sessies van één week uit een blok ("OCT2026", week 3), gedaan of niet, op sessienummer. */
+export async function getBlockWeek(memberId: string, tab: string, week: number): Promise<BlockWeekSession[]> {
+  const supabase = await createClient();
+  const select = "id, date, status, title, planned_title, planned_tab, workout_exercises(count), import_batch:import_batches ( sheet_tab )";
+  // Twee bronnen: nog gekoppeld aan de import, of al afgewerkt (planned_tab).
+  const [fromImport, finished] = await Promise.all([
+    supabase.from("workouts").select(select.replace("import_batches (", "import_batches!inner (")).eq("member_id", memberId).eq("import_batch.sheet_tab", tab),
+    supabase.from("workouts").select(select).eq("member_id", memberId).eq("planned_tab", tab),
+  ]);
+  if (fromImport.error) fail("Week laden", fromImport.error);
+  if (finished.error) fail("Week laden", finished.error);
+
+  type Row = BlockRow & { id: string; workout_exercises: { count: number }[] };
+  return [...(fromImport.data as unknown as Row[]), ...(finished.data as unknown as Row[])]
+    .map((row) => {
+      const title = row.planned_title ?? row.title ?? "";
+      const match = title.match(/^Week\s+(\d+)\s*·\s*Sessie\s+(\d+)/);
+      return { row, title, week: Number(match?.[1]), session: Number(match?.[2] ?? 0) };
+    })
+    .filter((item) => item.week === week)
+    .map(({ row, title, session }) => ({
+      id: row.id,
+      date: row.date,
+      title,
+      status: row.status,
+      exercise_count: row.workout_exercises?.[0]?.count ?? 0,
+      session,
+    }))
+    .sort((a, b) => a.session - b.session);
 }

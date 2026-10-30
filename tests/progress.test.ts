@@ -76,19 +76,9 @@ describe("weeklyTonnage", () => {
   });
 });
 
-describe("plannedState en summarizeMonths", () => {
+describe("summarizeMonths", () => {
   // Vrijdag 30 oktober 2026: deze week loopt van maandag 26 oktober tot zondag 1 november.
   const today = "2026-10-30";
-
-  it("enkel deze week is af te werken; voorbij = gemist, later = op slot tot maandag 0:00", async () => {
-    const { plannedState } = await import("@/lib/blocks");
-    expect(plannedState("2026-10-25", today)).toBe("missed"); // zondag vorige week
-    expect(plannedState("2026-10-26", today)).toBe("open"); // maandag deze week
-    expect(plannedState("2026-11-01", today)).toBe("open"); // zondag deze week
-    expect(plannedState("2026-11-02", today)).toBe("locked"); // maandag volgende week
-    // Op maandag 2 november gaat die week open.
-    expect(plannedState("2026-11-02", "2026-11-02")).toBe("open");
-  });
 
   it("telt per maand en week: gedaan / totaal, een gemiste sessie geeft 3/4", async () => {
     const { summarizeMonths } = await import("@/lib/blocks");
@@ -116,5 +106,28 @@ describe("bestTestedMaxes", () => {
     expect([prs.squat?.kg, prs.bench?.kg, prs.deadlift?.kg]).toEqual([135, 105, 160]);
     expect(prs.squat?.label).toBe("Blok 2");
     expect(bestTestedMaxes([]).bench).toBeNull();
+  });
+});
+
+describe("blokken verlopen", () => {
+  it("het nieuwste begonnen blok is het huidige; oudere blokken zijn verlopen, nieuwere niet", async () => {
+    const { currentBlockTab, isExpiredBlock } = await import("@/lib/blocks");
+    const rows = [
+      { sheetTab: "SEP2026", status: "completed" as const },
+      { sheetTab: "SEP2026", status: "planned" as const },
+      { sheetTab: "OCT2026", status: "completed" as const },
+      { sheetTab: "OCT2026", status: "planned" as const },
+      { sheetTab: "NOV2026", status: "planned" as const }, // al geïmporteerd, nog niet begonnen
+    ];
+    const current = currentBlockTab(rows);
+    expect(current).toBe("OCT2026");
+    expect(isExpiredBlock("SEP2026", current)).toBe(true);
+    expect(isExpiredBlock("OCT2026", current)).toBe(false);
+    expect(isExpiredBlock("NOV2026", current)).toBe(false);
+    expect(isExpiredBlock(null, current)).toBe(false); // geen import: verloopt nooit
+    // Eén sessie van november afgewerkt: nu is oktober verlopen.
+    expect(isExpiredBlock("OCT2026", currentBlockTab([...rows, { sheetTab: "NOV2026", status: "completed" as const }]))).toBe(true);
+    // Over de jaargrens heen.
+    expect(isExpiredBlock("DEC2026", "JAN2027")).toBe(true);
   });
 });

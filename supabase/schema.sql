@@ -195,6 +195,7 @@ create table public.workouts (
   -- titel, zodat een nieuwe import deze sessie herkent (zie import_sheet).
   planned_date date,
   planned_title text,
+  planned_tab text,             -- maandtab van de import ("OCT2026"): de sessie blijft bij haar blok
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -841,7 +842,8 @@ begin
       import_batch_id = null,
       -- Rechts van "=" staan nog de oude waarden: de planning vóór deze update.
       planned_date = date,
-      planned_title = title
+      planned_title = title,
+      planned_tab = (select b.sheet_tab from public.import_batches b where b.id = import_batch_id)
     where id = (payload ->> 'workout_id')::uuid
       and member_id = (select auth.uid())
       and status = 'planned'

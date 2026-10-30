@@ -1,15 +1,20 @@
 // Server Component: per maand hoeveel sessies je per week deed, zoals een coach
 // het bekijkt ("week 3: 3/4"). Zelfde maanden en weken als in de sheet (zie
-// src/lib/blocks.ts). Gemiste sessies tellen mee in het totaal; inhalen kan niet.
-import { formatDate } from "@/lib/dates";
-import type { MonthSummary, WeekSummary } from "@/lib/blocks";
+// src/lib/blocks.ts). Klik op een week uit je sheet om de sessies te zien en de
+// rest af te werken; een blok verloopt pas als je aan een nieuwer blok begint.
+import Link from "next/link";
+import { isExpiredBlock, type MonthSummary, type WeekSummary } from "@/lib/blocks";
 import { cn } from "@/lib/cn";
+import { formatDate } from "@/lib/dates";
 
 export function MonthOverview({
   months,
   shiftAction,
+  currentBlock = null,
 }: {
   months: MonthSummary[];
+  /** Je huidige blok: oudere blokken zijn verlopen. */
+  currentBlock?: string | null;
   /** Enkel voor de sporter zelf: een geïmporteerde maand een week opschuiven. */
   shiftAction?: (sheetTab: string, days: number) => Promise<void>;
 }) {
@@ -26,12 +31,18 @@ export function MonthOverview({
           </div>
           <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {month.weeks.map((week) => (
-              <WeekCell key={week.week} week={week} />
+              <WeekCell
+                key={week.week}
+                week={week}
+                // Enkel weken uit je sheet hebben een weekpagina.
+                href={month.importTab ? `/app/week?blok=${month.importTab}&week=${week.week}` : null}
+                expired={isExpiredBlock(month.importTab, currentBlock)}
+              />
             ))}
           </ol>
           {shiftAction && month.importTab && (
             <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-              <span className="text-chalk/60">Begon week 1 in je sheet op een andere maandag?</span>
+              <span className="text-chalk/60">Datums van dit blok verschuiven:</span>
               {/* Gewone formulieren met een Server Action: werkt ook zonder JavaScript. */}
               <form action={shiftAction.bind(null, month.importTab, -7)}>
                 <button type="submit" className="font-semibold underline underline-offset-4">1 week eerder</button>
@@ -47,11 +58,11 @@ export function MonthOverview({
   );
 }
 
-function WeekCell({ week }: { week: WeekSummary }) {
-  const missed = !week.current && !week.future ? week.total - week.done : 0;
-  const status = week.future ? "komt nog" : week.current ? "deze week" : missed > 0 ? `${missed} gemist` : "volledig";
-  return (
-    <li className={cn("rounded-lg border p-3", week.current ? "border-accent" : "border-chalk/15")}>
+function WeekCell({ week, href, expired }: { week: WeekSummary; href: string | null; expired: boolean }) {
+  const open = week.total - week.done;
+  const status = open === 0 ? "volledig" : expired ? `${open} niet gedaan` : `${open} nog te doen`;
+  const content = (
+    <>
       <p className="text-sm text-chalk/60">Week {week.week}</p>
       <p className="text-xl font-bold tabular-nums">
         {week.done}
@@ -61,9 +72,11 @@ function WeekCell({ week }: { week: WeekSummary }) {
       <span aria-hidden="true" className="mt-2 block h-1.5 overflow-hidden rounded-full bg-chalk/15">
         <span className="block h-full rounded-full bg-accent" style={{ width: `${week.total ? (week.done / week.total) * 100 : 0}%` }} />
       </span>
-      <p className={cn("mt-1 text-xs", missed > 0 ? "font-semibold" : "text-chalk/60")}>{status}</p>
-    </li>
+      <p className={cn("mt-1 text-xs", open > 0 && !expired ? "font-semibold" : "text-chalk/60")}>{status}</p>
+    </>
   );
+  const box = cn("block rounded-lg border p-3", open > 0 && !expired ? "border-accent" : "border-chalk/15");
+  return <li>{href ? <Link href={href} className={cn(box, "hover:border-chalk")} aria-label={`Week ${week.week}: ${week.done} van ${week.total} gedaan, ${status}`}>{content}</Link> : <div className={box}>{content}</div>}</li>;
 }
 
 const monthLabel = (month: MonthSummary) =>

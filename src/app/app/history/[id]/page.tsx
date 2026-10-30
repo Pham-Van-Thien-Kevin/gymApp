@@ -3,10 +3,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
-import { getWorkoutDetail } from "@/lib/data";
+import { getCurrentBlockTab, getWorkoutDetail } from "@/lib/data";
 import { isUuid } from "@/lib/parse";
-import { plannedState } from "@/lib/blocks";
-import { todayISO } from "@/lib/dates";
+import { isExpiredBlock } from "@/lib/blocks";
 import { ButtonLink } from "@/components/ui/button";
 import { FormMessage } from "@/components/ui/form";
 import { PageHeader } from "@/components/ui/layout";
@@ -14,13 +13,14 @@ import { WorkoutDetail } from "@/components/workout-detail";
 import { DeleteWorkoutButton } from "./delete-workout-button";
 
 export default async function WorkoutPage({ params, searchParams }: PageProps<"/app/history/[id]">) {
-  await requireRole("member");
+  const profile = await requireRole("member");
   const { id } = await params;
   const { saved } = await searchParams;
   if (!isUuid(id)) notFound();
 
-  const workout = await getWorkoutDetail(id);
+  const [workout, current] = await Promise.all([getWorkoutDetail(id), getCurrentBlockTab(profile.id)]);
   if (!workout) notFound();
+  const expired = isExpiredBlock(workout.import_batch?.sheet_tab, current);
 
   return (
     <>
@@ -31,7 +31,7 @@ export default async function WorkoutPage({ params, searchParams }: PageProps<"/
         title={workout.title ?? "Training"}
         actions={
           <>
-            {workout.status === "planned" && plannedState(workout.date, todayISO()) === "open" && (
+            {workout.status === "planned" && !expired && (
               <ButtonLink href={`/app/log?gepland=${workout.id}`} size="sm">
                 Afwerken
               </ButtonLink>
@@ -45,7 +45,7 @@ export default async function WorkoutPage({ params, searchParams }: PageProps<"/
           <FormMessage state={{ success: "Training opgeslagen. Sterk werk!" }} />
         </div>
       )}
-      <WorkoutDetail workout={workout} />
+      <WorkoutDetail workout={workout} expired={expired} />
     </>
   );
 }

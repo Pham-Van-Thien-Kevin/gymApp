@@ -3,8 +3,8 @@
 // Server Action is een publiek POST-endpoint, ook als de knop verborgen is.
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth";
-import { plannedState } from "@/lib/blocks";
-import { getLiftStats, getPreviousPerformances } from "@/lib/data";
+import { getCurrentBlockTab, getLiftStats, getPreviousPerformances } from "@/lib/data";
+import { isExpiredBlock } from "@/lib/blocks";
 import { isValidISODate, todayISO } from "@/lib/dates";
 import { inRange, isUuid, parseDecimal, parseInteger, text } from "@/lib/parse";
 import { createClient } from "@/lib/supabase/server";
@@ -14,7 +14,7 @@ import type { WorkoutDraft } from "./types";
 type SaveResult = { ok: true; workoutId: string } | { ok: false; error: string };
 
 export async function saveWorkout(draft: WorkoutDraft): Promise<SaveResult> {
-  await requireRole("member");
+  const profile = await requireRole("member");
 
   // Vertrouw nooit wat de browser stuurt: alles opnieuw valideren.
   if (!isValidISODate(draft?.date ?? "")) return { ok: false, error: "Kies een geldige datum." };
@@ -65,13 +65,16 @@ export async function saveWorkout(draft: WorkoutDraft): Promise<SaveResult> {
 
   const supabase = await createClient();
 
-  // Een geplande sessie afwerken mag enkel in haar eigen week (zie plannedState).
+  // Een geplande sessie afwerken kan zolang ze niet afgewerkt is en haar blok niet
+  // verlopen is (een nieuwer blok is begonnen). log_workout controleert of ze van jou is.
   if (isUuid(draft.plannedWorkoutId)) {
-    const { data: planned } = await supabase.from("workouts").select("date, status").eq("id", draft.plannedWorkoutId).maybeSingle();
-    const state = planned ? plannedState(planned.date, todayISO()) : null;
+    const [{ data: planned }, current] = await Promise.all([
+      supabase.from("workouts").select("status, import_batch:import_batches ( sheet_tab )").eq("id", draft.plannedWorkoutId).maybeSingle(),
+      getCurrentBlockTab(profile.id),
+    ]);
     if (!planned || planned.status !== "planned") return { ok: false, error: "Deze sessie is al afgewerkt of bestaat niet meer." };
-    if (state === "missed") return { ok: false, error: "Deze sessie hoort bij een voorbije week en kan niet meer afgewerkt worden." };
-    if (state === "locked") return { ok: false, error: "Deze sessie gaat pas maandag om 0:00 open." };
+    const tab = (planned.import_batch as unknown as { sheet_tab: string } | null)?.sheet_tab;
+    if (isExpiredBlock(tab, current)) return { ok: false, error: "Dit blok is verlopen: je bent al aan een nieuwer blok begonnen." };
   }
 
   // Eén RPC-call = één transactie (zie log_workout in supabase/schema.sql).

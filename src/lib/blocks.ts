@@ -16,27 +16,8 @@ export function placeWorkout(date: string) {
   return { tab: `${MONTH_TABS[month - 1]}${year}`, year, month: month - 1, week1, week: daysBetween(week1, monday) / 7 + 1 };
 }
 
-export type PlannedState = "missed" | "open" | "locked";
-
-/**
- * Wat kan je met een geplande sessie? Enkel de sessies van DEZE week zijn af te
- * werken ("open"). Uit een voorbije week: gemist, inhalen kan niet (een week is
- * een week, zoals in het schema van je coach). Uit een latere week: op slot tot
- * die maandag om 0:00 (Belgische tijd, want todayISO rekent in Europe/Brussels).
- */
-export function plannedState(date: string, today: string): PlannedState {
-  const monday = startOfWeek(today);
-  if (date < monday) return "missed";
-  if (date >= nextMonday(today)) return "locked";
-  return "open";
-}
-
-/** De maandag van volgende week: dan gaat de volgende week open. */
+/** De maandag van volgende week (einde van "deze week" voor de teller op Home). */
 export const nextMonday = (today: string) => addDays(startOfWeek(today), 7);
-
-export function isMissed(workout: { date: string; status: WorkoutStatus }, today: string) {
-  return workout.status === "planned" && plannedState(workout.date, today) === "missed";
-}
 
 export type WeekSummary = { week: number; monday: string; done: number; total: number; current: boolean; future: boolean };
 /** importTab: de maandtab uit de sheet ("OCT2026") als de sessies uit een import komen; dan kan je ze opschuiven. */
@@ -81,4 +62,34 @@ export function summarizeMonths(workouts: StatusRow[], today: string): MonthSumm
   return [...months.values()]
     .map((month) => ({ ...month, weeks: month.weeks.sort((a, b) => a.week - b.week) }))
     .sort((a, b) => b.year - a.year || b.month - a.month);
+}
+
+// --- Welke blokken zijn nog open? --------------------------------------------
+// Een blok = een maandtab uit je sheet ("OCT2026"). Het is "begonnen" zodra je er
+// één sessie van afwerkte. Je huidige blok is het nieuwste begonnen blok; oudere
+// blokken zijn verlopen: daar hoef (en kan) je niets meer af te werken. Nieuwere,
+// nog niet begonnen blokken blijven open.
+
+const tabOrder = (tab: string) => {
+  const parsed = parseMonthTab(tab);
+  return parsed ? parsed.year * 12 + parsed.month : null;
+};
+
+/** Je huidige blok: het nieuwste blok met minstens één afgewerkte sessie. */
+export function currentBlockTab(rows: { sheetTab?: string | null; status: WorkoutStatus }[]): string | null {
+  let best: { tab: string; order: number } | null = null;
+  for (const row of rows) {
+    if (row.status !== "completed" || !row.sheetTab) continue;
+    const order = tabOrder(row.sheetTab);
+    if (order !== null && (!best || order > best.order)) best = { tab: row.sheetTab, order };
+  }
+  return best?.tab ?? null;
+}
+
+/** Is dit blok verlopen (ouder dan je huidige blok)? Sessies zonder blok verlopen nooit. */
+export function isExpiredBlock(tab: string | null | undefined, current: string | null): boolean {
+  if (!tab || !current) return false;
+  const order = tabOrder(tab);
+  const currentOrder = tabOrder(current);
+  return order !== null && currentOrder !== null && order < currentOrder;
 }

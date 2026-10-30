@@ -2,7 +2,7 @@
 // de browser) en stuurt kant-en-klare HTML. Er is hier geen interactiviteit.
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
-import { getActiveAssignment, getCheckins, getProgramLoads, getWorkoutDates, getWorkoutStatuses, getWorkouts } from "@/lib/data";
+import { getActiveAssignment, getCheckins, getCurrentBlockTab, getProgramLoads, getWorkoutDates, getWorkoutStatuses, getWorkouts } from "@/lib/data";
 import { nextMonday } from "@/lib/blocks";
 import { addDays, formatDate, startOfWeek, todayISO } from "@/lib/dates";
 import { formatTarget, pickTodaysDay, weekdayLabel } from "@/lib/program";
@@ -16,12 +16,13 @@ export default async function MemberHome() {
   const today = todayISO();
 
   // Promise.all: de vijf queries lopen tegelijk in plaats van na elkaar.
-  const [assignment, recentDates, recent, checkins, weekStatuses] = await Promise.all([
+  const [assignment, recentDates, recent, checkins, weekStatuses, currentBlock] = await Promise.all([
     getActiveAssignment(profile.id),
     getWorkoutDates(profile.id, addDays(today, -400)),
     getWorkouts(profile.id, { limit: 3 }),
     getCheckins(profile.id, 1),
     getWorkoutStatuses(profile.id, startOfWeek(today)),
+    getCurrentBlockTab(profile.id),
   ]);
 
   const dates = recentDates.map((workout) => workout.date);
@@ -174,7 +175,7 @@ export default async function MemberHome() {
           </Link>
         }
       >
-        <WorkoutList workouts={recent.items} hrefBase="/app/history" />
+        <WorkoutList workouts={recent.items} hrefBase="/app/history" currentBlock={currentBlock} />
       </Section>
     </>
   );
