@@ -22,11 +22,6 @@ export function weeklyStreak(workoutDates: string[], today: string): number {
   return streak;
 }
 
-export function countInWeek(workoutDates: string[], today: string): number {
-  const weekStart = startOfWeek(today);
-  return workoutDates.filter((date) => date >= weekStart && date <= today).length;
-}
-
 export type ProgressPoint = {
   date: string;
   heaviest: number; // zwaarste set (kg): wat je echt op de stang had
