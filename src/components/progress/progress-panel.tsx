@@ -4,13 +4,13 @@
 //
 // Met ?exercise=sbd tonen we squat, bench en deadlift samen. Heb je die
 // gelogd, dan is dat ook wat je eerst ziet.
-import { getBodyMetrics, getLoggedExercises, getSetLog, getSetLogs } from "@/lib/data";
+import { getBodyMetrics, getLoggedExercises, getSetLog, getSetLogs, getStrengthTests } from "@/lib/data";
 import { cookies } from "next/headers";
 import { GL_SEX_COOKIE } from "@/lib/gl";
 import { GlPoints } from "./gl-points";
 import { BIG_THREE, BIG_THREE_VIEW, bigThreeLift, type BigThreeLift } from "@/lib/exercises";
 import { roundToIncrement } from "@/lib/rpe";
-import { buildProgressSeries, combineByDate, formatKg, formatLoad, pickReferenceE1rm, weeklyTonnage, type ProgressPoint } from "@/lib/stats";
+import { bestTestedMaxes, buildProgressSeries, combineByDate, formatKg, formatLoad, pickReferenceE1rm, weeklyTonnage, type ProgressPoint } from "@/lib/stats";
 import { formatDate, todayISO } from "@/lib/dates";
 import { EmptyState, Stat } from "@/components/ui/layout";
 import { TrendChart, type TrendSeries } from "@/components/charts/trend-chart";
@@ -62,11 +62,13 @@ async function BigThreeChart({ memberId, options }: { memberId: string; options:
   // Een sporter kan twee oefeningen "Squat" hebben (standaardbibliotheek én
   // import): alle ids per lift samen, zodat de geschiedenis niet in twee valt.
   const idsByLift = Object.fromEntries(BIG_THREE.map((lift) => [lift, options.filter((o) => bigThreeLift(o.name) === lift).map((o) => o.id)])) as Record<BigThreeLift, string[]>;
-  const [rows, bodyMetrics, cookieStore] = await Promise.all([
+  const [rows, bodyMetrics, tests, cookieStore] = await Promise.all([
     getSetLogs(memberId, Object.values(idsByLift).flat()),
     getBodyMetrics(memberId),
+    getStrengthTests(memberId),
     cookies(),
   ]);
+  const prs = bestTestedMaxes(tests);
   const glSex = cookieStore.get(GL_SEX_COOKIE)?.value === "V" ? "V" : "M";
   // Laatste meting (de lijst is oud → nieuw), voor de GL-punten.
   const bodyweight = bodyMetrics.at(-1)?.weight ?? null;
@@ -81,21 +83,39 @@ async function BigThreeChart({ memberId, options }: { memberId: string; options:
     return <EmptyState title="Geen sets met gewicht">Voor squat, bench en deadlift zijn nog geen sets met een gewicht gelogd.</EmptyState>;
   }
 
-  const estimates = Object.fromEntries(lifts.map((lift) => [lift, currentEstimate(perLift[lift], today)]));
-  // Totaal van de afgeronde maxima, zodat de som klopt met wat erboven staat.
-  const total = lifts.reduce((sum, lift) => sum + roundToIncrement(estimates[lift]?.e1rm ?? 0), 0);
+  const estimates = Object.fromEntries(BIG_THREE.map((lift) => [lift, perLift[lift].length ? currentEstimate(perLift[lift], today) : null]));
+  // Per lift: je geteste PR (Maxima per blok) als je die hebt, anders de schatting (afgerond).
+  const maxFor = (lift: BigThreeLift) => prs[lift]?.kg ?? (estimates[lift] ? roundToIncrement(estimates[lift]!.e1rm) : null);
+  const complete = BIG_THREE.every((lift) => maxFor(lift) !== null);
+  const total = BIG_THREE.reduce((sum, lift) => sum + (maxFor(lift) ?? 0), 0);
+  const allTested = BIG_THREE.every((lift) => prs[lift]);
 
   return (
     <>
-      <p className="-mb-2 text-sm text-chalk/60">Geschat 1RM, afgerond op 2,5 kg</p>
+      <p className="-mb-2 text-sm text-chalk/60">Je 1RM: je geteste PR uit Maxima per blok, met eronder wat je sets nu schatten.</p>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {BIG_THREE.map((lift) => {
+          const pr = prs[lift];
           const estimate = estimates[lift];
-          return <Stat key={lift} label={LIFT_LABEL[lift]} value={formatLoad(estimate?.e1rm)} hint={estimate ? estimateHint(estimate) : "Nog niet gelogd"} />;
+          return pr ? (
+            <Stat
+              key={lift}
+              label={`${LIFT_LABEL[lift]} · PR`}
+              value={formatKg(pr.kg)}
+              hint={`Getest (${pr.label})${estimate ? ` · nu geschat ${formatLoad(estimate.e1rm)}` : ""}`}
+            />
+          ) : (
+            <Stat
+              key={lift}
+              label={`${LIFT_LABEL[lift]} · geschat`}
+              value={formatLoad(estimate?.e1rm)}
+              hint={estimate ? `${estimateHint(estimate)} · nog geen geteste max` : "Nog niet gelogd"}
+            />
+          );
         })}
-        <Stat label="Total" value={formatKg(total)} hint={lifts.length < 3 ? "Niet alle drie gelogd" : "Som van de drie"} />
+        <Stat label="Total" value={complete ? formatKg(total) : "–"} hint={!complete ? "Niet alle drie bekend" : allTested ? "Som van je PR's" : "Deels geschat"} />
         {/* GL enkel met een volledige total: anders vergelijk je appels met peren. */}
-        {lifts.length === 3 && <GlPoints total={total} bodyweight={bodyweight} initialSex={glSex} />}
+        {complete && <GlPoints total={total} bodyweight={bodyweight} initialSex={glSex} />}
       </div>
       <TrendChart
         title="Zwaarste set per training: squat, bench en deadlift"

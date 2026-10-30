@@ -128,3 +128,18 @@ export function formatKg(value: number | null | undefined): string {
 export function formatLoad(value: number | null | undefined): string {
   return value === null || value === undefined ? "–" : formatKg(roundToIncrement(value));
 }
+
+export type TestedMax = { kg: number; label: string; date: string | null };
+
+/**
+ * Je beste GETESTE max per lift uit "Maxima per blok" (je echte 1RM's). Die
+ * gaan voor op een schatting: een getest 1RM is wat je echt deed.
+ */
+export function bestTestedMaxes(tests: { label: string; squat: number | null; bench: number | null; deadlift: number | null; tested_on: string | null }[]) {
+  const best = (lift: "squat" | "bench" | "deadlift"): TestedMax | null =>
+    tests.reduce<TestedMax | null>((top, test) => {
+      const kg = test[lift] === null ? null : Number(test[lift]);
+      return kg && kg > (top?.kg ?? 0) ? { kg, label: test.label, date: test.tested_on } : top;
+    }, null);
+  return { squat: best("squat"), bench: best("bench"), deadlift: best("deadlift") };
+}

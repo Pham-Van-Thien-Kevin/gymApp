@@ -105,3 +105,16 @@ describe("plannedState en summarizeMonths", () => {
     ]);
   });
 });
+
+describe("bestTestedMaxes", () => {
+  it("neemt per lift je beste geteste max over alle blokken", async () => {
+    const { bestTestedMaxes } = await import("@/lib/stats");
+    const prs = bestTestedMaxes([
+      { label: "Blok 1", squat: 100, bench: 105, deadlift: 150, tested_on: "2026-07-28" },
+      { label: "Blok 2", squat: 135, bench: 105, deadlift: 160, tested_on: "2026-09-21" },
+    ]);
+    expect([prs.squat?.kg, prs.bench?.kg, prs.deadlift?.kg]).toEqual([135, 105, 160]);
+    expect(prs.squat?.label).toBe("Blok 2");
+    expect(bestTestedMaxes([]).bench).toBeNull();
+  });
+});
