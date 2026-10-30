@@ -11,6 +11,6 @@ export async function GET(_request: Request, { params }: RouteContext<"/trainer/
   const { id } = await params;
   if (!isUuid(id)) notFound();
   const { client } = await requireClient(id);
-  const file = buildWorkbook(await getExportData(id));
+  const file = buildWorkbook(await getExportData(id, client.full_name));
   return xlsxResponse(file, exportFileName(client.full_name, todayISO()));
 }

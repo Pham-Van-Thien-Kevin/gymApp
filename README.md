@@ -208,7 +208,7 @@ Extra:
 
 **Geplande sessies afwerken**: een sessie die in de sheet nog niet gedaan is, staat bij *Historiek → Nog af te werken*. Met **Afwerken** open je ze in de logger, met de doelen uit de sheet. Bij opslaan wordt die rij een afgewerkte training (dezelfde id, los van de import). Importeer je die maand later opnieuw, dan herkent de import de sessie aan de oorspronkelijke datum en titel en zet hij de planning er niet nog eens bij.
 
-**Exporteren**: *Historiek → Exporteren (.xlsx)* (en de trainer via de cliëntpagina) downloadt een Excel-bestand met vier tabbladen: Trainingen (één rij per set), Maxima, Lichaamsgewicht en Check-ins.
+**Exporteren**: *Historiek → Exporteren (.xlsx)* (en de trainer via de cliëntpagina) downloadt een Excel-bestand in hetzelfde template als de coachingsheet: een tab `Info` met de maxima per blok, per maand een tab (`AUG2026`) met de weken naast elkaar en de sessies onder elkaar, en een tab `Lichaamsgewicht`. Een week hoort bij de maand van haar maandag, zodat week 1 op de eerste maandag start, zoals de import aanneemt: je kan de export dus meteen opnieuw importeren. Een test leest de echte sheet in, exporteert en importeert opnieuw, en vergelijkt elke set.
 
 **Valkuil in de echte sheet**: Google Sheets zet tekst als `10-12` (reps) of `6-7` (RPE) automatisch om naar een datum. In de cel staat dan intern een getal (46366), op het scherm "10-12". De parser leest bij zulke datumcellen daarom de getoonde tekst.
 

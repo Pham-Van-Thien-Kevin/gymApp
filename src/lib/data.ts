@@ -382,7 +382,7 @@ export async function getImportBatches(memberId: string) {
  * Alles voor de Excel-export van één sporter. Trainingen in blokken van 200:
  * Supabase geeft standaard maximaal 1000 rijen per verzoek terug.
  */
-export async function getExportData(memberId: string): Promise<ExportData> {
+export async function getExportData(memberId: string, name: string): Promise<ExportData> {
   const supabase = await createClient();
   const workouts: ExportWorkout[] = [];
   for (let from = 0; ; from += 200) {
@@ -414,5 +414,5 @@ export async function getExportData(memberId: string): Promise<ExportData> {
     getCheckins(memberId, 1000),
   ]);
   // Oud → nieuw, net zoals de trainingen.
-  return { workouts, strengthTests, bodyMetrics: [...bodyMetrics].sort((a, b) => a.date.localeCompare(b.date)), checkins: [...checkins].reverse() };
+  return { name, workouts, strengthTests, bodyMetrics: [...bodyMetrics].sort((a, b) => a.date.localeCompare(b.date)), checkins: [...checkins].reverse() };
 }

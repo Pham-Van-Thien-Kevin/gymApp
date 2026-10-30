@@ -8,6 +8,6 @@ import { buildWorkbook, exportFileName, xlsxResponse } from "@/lib/export";
 
 export async function GET() {
   const profile = await requireRole("member");
-  const file = buildWorkbook(await getExportData(profile.id));
+  const file = buildWorkbook(await getExportData(profile.id, profile.full_name));
   return xlsxResponse(file, exportFileName(profile.full_name, todayISO()));
 }
