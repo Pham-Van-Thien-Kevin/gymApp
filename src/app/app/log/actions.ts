@@ -95,6 +95,9 @@ export async function saveWorkout(draft: WorkoutDraft): Promise<SaveResult> {
   });
   if (error) return { ok: false, error: `Opslaan lukte niet: ${error.message}` };
 
+  // De training staat er: het automatisch bewaarde concept is niet meer nodig.
+  await supabase.from("workout_drafts").delete().eq("member_id", profile.id);
+
   // De homepagina, historiek en progressie tonen nu verouderde data: vernieuwen.
   revalidatePath("/app", "layout");
   return { ok: true, workoutId: data as string };
@@ -135,4 +138,29 @@ export async function fetchExerciseHistory(
     getLiftStats(profile.id, [exerciseId], todayISO()),
   ]);
   return { previous: previous[exerciseId] ?? null, stats: stats[exerciseId] ?? null };
+}
+
+/**
+ * Automatisch opslaan terwijl je logt: je concept komt op de server, zodat je
+ * niets verliest als je van toestel wisselt of de app sluit. Enkel voor jezelf
+ * (RLS). Het concept is gewoon de staat van de logger (JSON); pas bij "Opslaan"
+ * wordt het een echte training, met alle controles van saveWorkout.
+ */
+export async function saveDraft(draft: WorkoutDraft): Promise<{ ok: boolean }> {
+  const profile = await requireRole("member");
+  const json = JSON.stringify(draft ?? null);
+  // Een concept is klein; alles boven 200 kB is geen echte training.
+  if (draft?.version !== 1 || json.length > 200_000) return { ok: false };
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("workout_drafts")
+    .upsert({ member_id: profile.id, draft: JSON.parse(json), updated_at: new Date().toISOString() });
+  return { ok: !error };
+}
+
+/** Concept weggooien ("Verwijderen" bij een niet-opgeslagen training). */
+export async function clearDraft(): Promise<void> {
+  const profile = await requireRole("member");
+  const supabase = await createClient();
+  await supabase.from("workout_drafts").delete().eq("member_id", profile.id);
 }

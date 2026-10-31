@@ -23,7 +23,7 @@ import {
 } from "@/lib/types";
 import { groupByCategory } from "@/lib/exercises";
 import { RpeTable } from "@/components/rpe-table";
-import { createExercise, fetchExerciseHistory, saveWorkout } from "./actions";
+import { clearDraft, createExercise, fetchExerciseHistory, saveDraft, saveWorkout } from "./actions";
 import { PlatesLine, PrLine, SuggestionLine, TargetPicker, type Suggestion } from "./lift-insights";
 import type { DraftExercise, DraftSet, WorkoutDraft } from "./types";
 
@@ -36,7 +36,21 @@ type Props = {
   exercises: Exercise[];
   previous: Record<string, PreviousPerformance>;
   stats: Record<string, LiftStats>;
+  /** Je automatisch bewaarde concept op de server (ander toestel, app gesloten, …). */
+  serverDraft?: unknown;
+  /** Heb je een trainer? Dan zegt de knop "naar coach sturen". */
+  hasTrainer?: boolean;
 };
+
+/** Is dit een bruikbaar concept met minstens één oefening of cardio? */
+function asDraft(value: unknown): WorkoutDraft | null {
+  const draft = value as WorkoutDraft | null;
+  if (!draft || draft.version !== 1 || !Array.isArray(draft.exercises) || !Array.isArray(draft.cardio)) return null;
+  return draft.exercises.length > 0 || draft.cardio.length > 0 ? draft : null;
+}
+
+/** Na een wijziging zoveel ms wachten voor we naar de server schrijven (niet bij elke toets). */
+const AUTOSAVE_DELAY = 1500;
 
 // Unieke sleutel voor nieuwe rijen. Buiten de component, want React-componenten
 // moeten "puur" zijn tijdens het renderen; dit wordt enkel in klik-handlers aangeroepen.
@@ -198,6 +212,9 @@ export function WorkoutLogger(props: Props) {
   const [stats, setStats] = useState(props.stats);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, startSaving] = useTransition();
+  // Automatisch opslaan op de server: wanneer het laatst lukte (of mislukte).
+  const [autosave, setAutosave] = useState<{ at: number; ok: boolean } | null>(null);
+  const [serverDraftDismissed, setServerDraftDismissed] = useState(false);
 
   // Elke wijziging gaat via update(): zo weten we dat de gebruiker begonnen is.
   function update(change: (current: WorkoutDraft) => WorkoutDraft) {
@@ -217,15 +234,36 @@ export function WorkoutLogger(props: Props) {
     if (dirty) writeStorage(storageKey, JSON.stringify({ ...draft, savedAt: Date.now() }));
   }, [dirty, draft, storageKey]);
 
+  // Ook op de server bewaren, een moment nadat je stopt met typen of tikken. Zo
+  // ben je niets kwijt als je van toestel wisselt, de app sluit of je batterij leeg is.
+  useEffect(() => {
+    if (!dirty) return;
+    const timer = setTimeout(async () => {
+      const result = await saveDraft({ ...draft, savedAt: Date.now() });
+      setAutosave({ at: Date.now(), ok: result.ok });
+    }, AUTOSAVE_DELAY);
+    return () => clearTimeout(timer);
+  }, [dirty, draft]);
+
+  // Een niet-opgeslagen training om verder te loggen: de nieuwste van dit toestel
+  // (localStorage) en de server.
   let restorable: WorkoutDraft | null = null;
-  if (!dirty && savedDraftJson) {
+  if (!dirty) {
+    let local: WorkoutDraft | null = null;
     try {
-      const parsed = JSON.parse(savedDraftJson) as WorkoutDraft;
-      if (parsed.version === 1 && (parsed.exercises.length > 0 || parsed.cardio.length > 0)) restorable = parsed;
+      local = savedDraftJson ? asDraft(JSON.parse(savedDraftJson)) : null;
     } catch {
-      restorable = null;
+      local = null;
     }
+    const remote = serverDraftDismissed ? null : asDraft(props.serverDraft);
+    restorable = [local, remote].filter((d): d is WorkoutDraft => d !== null).sort((a, b) => b.savedAt - a.savedAt)[0] ?? null;
   }
+
+  // Alles afgevinkt? Dan bieden we aan om de training naar je coach te sturen.
+  // Optionele oefeningen tellen niet mee.
+  const required = draft.exercises.filter((e) => !e.optional && e.sets.length > 0);
+  const allDone = required.length > 0 && required.every((e) => e.sets.every((s) => s.done));
+  const saveLabel = props.hasTrainer ? "Opslaan en naar coach sturen" : "Training opslaan";
 
   function toggleDone(exercise: DraftExercise, set: DraftSet) {
     if (set.done) {
@@ -311,7 +349,15 @@ export function WorkoutLogger(props: Props) {
             <Button size="sm" onClick={() => update(() => restorable!)}>
               Verder loggen
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => writeStorage(storageKey, null)}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                writeStorage(storageKey, null);
+                setServerDraftDismissed(true);
+                void clearDraft();
+              }}
+            >
               Verwijderen
             </Button>
           </div>
@@ -614,10 +660,28 @@ export function WorkoutLogger(props: Props) {
       </section>
 
       <div className="mt-8 flex flex-col gap-3">
+        {allDone && (
+          <div role="status" className="rounded-xl border border-accent p-4">
+            <p className="font-semibold">Alles voltooid!</p>
+            <p className="mt-1 text-sm text-chalk/70">
+              {props.hasTrainer
+                ? "Al je sets zijn afgevinkt. Stuur je training naar je coach: die krijgt meteen een melding."
+                : "Al je sets zijn afgevinkt. Sla je training op."}
+            </p>
+          </div>
+        )}
         <FormMessage state={error ? { error } : null} />
         <Button size="lg" onClick={save} disabled={isSaving}>
-          {isSaving ? "Opslaan…" : "Training opslaan"}
+          {isSaving ? "Opslaan…" : saveLabel}
         </Button>
+        {/* aria-live: een schermlezer hoort het als het automatisch opslaan lukt of mislukt. */}
+        <p aria-live="polite" className="text-center text-sm text-chalk/60">
+          {autosave
+            ? autosave.ok
+              ? `Automatisch opgeslagen om ${new Date(autosave.at).toLocaleTimeString("nl-BE", { hour: "2-digit", minute: "2-digit" })}`
+              : "Automatisch opslaan lukte niet; je training staat nog op dit toestel."
+            : "Je training wordt automatisch opgeslagen terwijl je logt."}
+        </p>
       </div>
     </div>
   );

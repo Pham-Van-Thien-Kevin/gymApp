@@ -25,6 +25,7 @@
 drop trigger if exists on_auth_user_created on auth.users;
 drop view if exists public.set_log, public.member_activity;
 drop table if exists
+  public.workout_drafts,
   public.notifications,
   public.workout_feedback,
   public.weekly_checkins,
@@ -1271,6 +1272,27 @@ begin
 end;
 $$;
 -- <<< MELDINGEN
+
+
+-- 8c. CONCEPTEN -------------------------------------------------------------
+-- >>> CONCEPTEN (dit blok staat letterlijk ook in supabase/updates/2026-10-31-concepten.sql)
+-- Een training die je aan het loggen bent, automatisch bewaard terwijl je logt.
+-- Eén concept per sporter: bij opslaan van de training verdwijnt het. Zo verlies
+-- je niets als je van toestel wisselt, de app sluit of je batterij leeg is.
+create table if not exists public.workout_drafts (
+  member_id uuid primary key references public.profiles (id) on delete cascade,
+  draft jsonb not null,
+  updated_at timestamptz not null default now()
+);
+
+-- Enkel jij ziet en schrijft je concept (ook je trainer niet: het is nog niet af).
+alter table public.workout_drafts enable row level security;
+drop policy if exists "workout_drafts: eigen" on public.workout_drafts;
+create policy "workout_drafts: eigen" on public.workout_drafts for all to authenticated
+  using (member_id = (select auth.uid()))
+  with check (member_id = (select auth.uid()));
+revoke all on public.workout_drafts from anon;
+-- <<< CONCEPTEN
 
 
 -- 9. STANDAARDGEGEVENS --------------------------------------------------------

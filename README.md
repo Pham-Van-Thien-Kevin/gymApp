@@ -115,6 +115,7 @@ Wil je `liftlog.jouwdomein.be` in plaats van `….vercel.app`? De app blijft op 
 | `2026-10-30-meldingen.sql` | Meldingen (afgewerkte training, nieuw schema, feedback) met Realtime |
 | `2026-10-31-blokopbouw.sql` | Blokopbouw (RPE per week omhoog) en een geïmporteerde maand opschuiven |
 | `2026-10-31-blok-bij-afwerken.sql` | Een afgewerkte sessie blijft bij haar blok (planned_tab) |
+| `2026-10-31-concepten.sql` | Training automatisch opslaan op de server tijdens het loggen |
 
 ## Scripts
 

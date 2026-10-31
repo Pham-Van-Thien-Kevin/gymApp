@@ -20,6 +20,7 @@ import {
   getWorkoutDates,
   getPlannedWorkouts,
   getWorkoutDetail,
+  getWorkoutDraft,
 } from "@/lib/data";
 import { addDays, formatDate, todayISO } from "@/lib/dates";
 import { isExpiredBlock } from "@/lib/blocks";
@@ -45,7 +46,7 @@ export default async function LogPage({ searchParams }: PageProps<"/app/log">) {
     // Al afgewerkt, of uit een verlopen blok: terug naar de training, die zegt waarom.
     const current = await getCurrentBlockTab(profile.id);
     if (planned.status !== "planned" || isExpiredBlock(planned.import_batch?.sheet_tab, current)) redirect(`/app/history/${planned.id}`);
-    return <LogPlanned memberId={profile.id} today={today} planned={planned} />;
+    return <LogPlanned memberId={profile.id} today={today} planned={planned} hasTrainer={profile.trainer_id !== null} />;
   }
 
   if (!dayId && vrij !== "1") {
@@ -77,9 +78,10 @@ export default async function LogPage({ searchParams }: PageProps<"/app/log">) {
   // Eén oefening per naam: je eigen versie (met je geschiedenis) gaat voor.
   const exercises = uniqueByName(allExercises, profile.id);
   const exerciseIds = (programDay?.program_exercises ?? []).flatMap((pe) => (pe.exercise ? [pe.exercise.id] : []));
-  const [previous, stats] = await Promise.all([
+  const [previous, stats, serverDraft] = await Promise.all([
     getPreviousPerformances(profile.id, exerciseIds),
     getLiftStats(profile.id, exerciseIds, today),
+    getWorkoutDraft(profile.id),
   ]);
 
   return (
@@ -102,18 +104,21 @@ export default async function LogPage({ searchParams }: PageProps<"/app/log">) {
         exercises={exercises}
         previous={previous}
         stats={stats}
+        serverDraft={serverDraft}
+        hasTrainer={profile.trainer_id !== null}
       />
     </>
   );
 }
 
 /** Een geplande training uit je sheet afwerken: dezelfde logger, met de planning als startpunt. */
-async function LogPlanned({ memberId, today, planned }: { memberId: string; today: string; planned: WorkoutDetail }) {
+async function LogPlanned({ memberId, today, planned, hasTrainer }: { memberId: string; today: string; planned: WorkoutDetail; hasTrainer: boolean }) {
   const exerciseIds = planned.workout_exercises.flatMap((we) => (we.exercise ? [we.exercise.id] : []));
-  const [allExercises, previous, stats] = await Promise.all([
+  const [allExercises, previous, stats, serverDraft] = await Promise.all([
     getExercises(),
     getPreviousPerformances(memberId, exerciseIds),
     getLiftStats(memberId, exerciseIds, today),
+    getWorkoutDraft(memberId),
   ]);
 
   return (
@@ -132,6 +137,8 @@ async function LogPlanned({ memberId, today, planned }: { memberId: string; toda
         exercises={uniqueByName(allExercises, memberId)}
         previous={previous}
         stats={stats}
+        serverDraft={serverDraft}
+        hasTrainer={hasTrainer}
       />
     </>
   );

@@ -564,3 +564,10 @@ export async function getBlockWeek(memberId: string, tab: string, week: number):
     }))
     .sort((a, b) => a.session - b.session);
 }
+
+/** Je automatisch bewaarde concept van de logger (of null). Enkel voor jezelf (RLS). */
+export async function getWorkoutDraft(memberId: string): Promise<unknown> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("workout_drafts").select("draft").eq("member_id", memberId).maybeSingle();
+  return data?.draft ?? null;
+}

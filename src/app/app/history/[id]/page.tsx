@@ -42,7 +42,9 @@ export default async function WorkoutPage({ params, searchParams }: PageProps<"/
       />
       {saved && (
         <div className="mb-6">
-          <FormMessage state={{ success: "Training opgeslagen. Sterk werk!" }} />
+          <FormMessage
+            state={{ success: profile.trainer_id ? "Training opgeslagen en naar je coach gestuurd. Sterk werk!" : "Training opgeslagen. Sterk werk!" }}
+          />
         </div>
       )}
       <WorkoutDetail workout={workout} expired={expired} />
