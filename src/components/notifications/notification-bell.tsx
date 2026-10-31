@@ -2,13 +2,17 @@
 // Client Component: de bel met het aantal ongelezen meldingen. Het startgetal
 // komt van de server; via Supabase Realtime telt hij live verder als er een
 // nieuwe melding binnenkomt (bv. je trainer zet een schema online).
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { getBrowserClient } from "@/lib/supabase/client";
 
 export function NotificationBell({ userId, initialCount, href, className }: { userId: string; initialCount: number; href: string; className?: string }) {
   const [count, setCount] = useState(initialCount);
+  // Elke bel een eigen kanaal: de trainerlayout toont er twee (mobiel en desktop).
+  // Met dezelfde naam geeft Supabase hetzelfde, al geabonneerde kanaal terug, en
+  // dan gooit .on() een fout die de hele pagina liet crashen.
+  const instanceId = useId();
   // Nieuwe server-render (bv. na "alles gelezen") → het getal van de server volgen.
   const [lastInitial, setLastInitial] = useState(initialCount);
   if (initialCount !== lastInitial) {
@@ -17,19 +21,25 @@ export function NotificationBell({ userId, initialCount, href, className }: { us
   }
 
   useEffect(() => {
-    const supabase = getBrowserClient();
-    // Luister enkel naar NIEUWE rijen voor jou. De filter is een optimalisatie;
-    // de echte beveiliging is RLS, die Realtime ook toepast.
-    const channel = supabase
-      .channel(`notifications:${userId}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` }, () =>
-        setCount((current) => current + 1),
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [userId]);
+    // Live tellen is een extraatje: lukt Realtime niet, dan werkt de bel gewoon
+    // zonder live updates, maar de app crasht nooit.
+    try {
+      const supabase = getBrowserClient();
+      // Luister enkel naar NIEUWE rijen voor jou. De filter is een optimalisatie;
+      // de echte beveiliging is RLS, die Realtime ook toepast.
+      const channel = supabase
+        .channel(`notifications:${userId}:${instanceId}`)
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` }, () =>
+          setCount((current) => current + 1),
+        )
+        .subscribe();
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    } catch {
+      return undefined;
+    }
+  }, [userId, instanceId]);
 
   const label = count === 0 ? "Meldingen" : `Meldingen, ${count} ongelezen`;
   return (
