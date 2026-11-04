@@ -61,3 +61,21 @@ export async function deleteFeedback(feedbackId: string): Promise<void> {
   await supabase.from("workout_feedback").delete().eq("id", feedbackId).eq("trainer_id", trainer.id);
   revalidatePath("/trainer", "layout");
 }
+
+/** Een training van een cliënt op een andere dag zetten (gepland of al gelogd). */
+export async function moveWorkout(workoutId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  await requireRole("trainer");
+  const date = String(formData.get("date") ?? "");
+  if (!isUuid(workoutId)) return { error: "Onbekende training." };
+  if (!isValidISODate(date)) return { error: "Kies een geldige datum." };
+
+  const supabase = await createClient();
+  // move_workout controleert dat het om een eigen cliënt gaat en verandert enkel de datum.
+  const { error } = await supabase.rpc("move_workout", { p_workout_id: workoutId, p_date: date });
+  if (error) return { error: error.message };
+
+  // Ook de app van de cliënt toont de nieuwe datum.
+  revalidatePath("/trainer", "layout");
+  revalidatePath("/app", "layout");
+  return { success: "Datum aangepast." };
+}

@@ -2,14 +2,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getWorkoutDetail } from "@/lib/data";
+import { todayISO } from "@/lib/dates";
 import { isUuid } from "@/lib/parse";
 import { requireClient } from "@/lib/trainer";
 import { ActionForm } from "@/components/ui/action-form";
-import { TextareaField } from "@/components/ui/form";
+import { Field, TextareaField } from "@/components/ui/form";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { PageHeader } from "@/components/ui/layout";
+import { Card, PageHeader } from "@/components/ui/layout";
 import { WorkoutDetail } from "@/components/workout-detail";
-import { addFeedback, deleteFeedback } from "@/app/trainer/actions";
+import { addFeedback, deleteFeedback, moveWorkout } from "@/app/trainer/actions";
 
 export default async function ClientWorkoutPage({ params }: PageProps<"/trainer/clients/[id]/workouts/[workoutId]">) {
   const { id, workoutId } = await params;
@@ -27,6 +28,24 @@ export default async function ClientWorkoutPage({ params }: PageProps<"/trainer/
       </Link>
       <PageHeader eyebrow={client.full_name} title={workout.title ?? "Training"} />
       <div className="max-w-3xl">
+        <Card className="mb-6">
+          <h2 className="mb-3 font-semibold">{workout.status === "planned" ? "Naar een andere dag verplaatsen" : "Datum corrigeren"}</h2>
+          {/* key: na het verplaatsen toont het veld de nieuwe datum (defaultValue telt enkel bij de eerste render). */}
+          <ActionForm key={workout.date} action={moveWorkout.bind(null, workout.id)}>
+            <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+              <Field
+                label="Datum"
+                name="date"
+                type="date"
+                required
+                defaultValue={workout.date}
+                // Een gelogde training kan niet in de toekomst liggen; de database controleert dit ook.
+                max={workout.status === "planned" ? undefined : todayISO()}
+              />
+              <SubmitButton>Datum opslaan</SubmitButton>
+            </div>
+          </ActionForm>
+        </Card>
         <WorkoutDetail
           workout={workout}
           feedbackTitle="Feedback"
