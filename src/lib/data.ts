@@ -140,16 +140,18 @@ export async function getWorkoutDates(memberId: string, since: string): Promise<
 
 export async function getWorkouts(
   memberId: string,
-  { limit = 20, offset = 0 }: { limit?: number; offset?: number } = {},
+  { limit = 20, offset = 0, until }: { limit?: number; offset?: number; /** Enkel tot en met deze datum (de toekomst apart tonen). */ until?: string } = {},
 ): Promise<{ items: WorkoutListItem[]; total: number }> {
   const supabase = await createClient();
   // "workout_exercises(count)" laat PostgREST tellen in plaats van alle rijen op te halen.
-  const { data, error, count } = await supabase
+  let query = supabase
     .from("workouts")
     .select("id, date, title, status, duration_minutes, import_batch_id, import_batch:import_batches(sheet_tab), workout_exercises(count), workout_feedback(count)", {
       count: "exact",
     })
-    .eq("member_id", memberId)
+    .eq("member_id", memberId);
+  if (until) query = query.lte("date", until);
+  const { data, error, count } = await query
     .order("date", { ascending: false })
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
@@ -505,7 +507,7 @@ export async function getWorkoutStatuses(memberId: string, since: string): Promi
 }
 
 /** Postgres numeric komt soms als tekst binnen: altijd naar getallen omzetten. */
-function numericBlock(program: BlockSettings): BlockSettings {
+export function numericBlock(program: BlockSettings): BlockSettings {
   const num = (value: number | string | null) => (value === null ? null : Number(value));
   return { block_weeks: num(program.block_weeks), rpe_start: num(program.rpe_start), rpe_end: num(program.rpe_end) };
 }

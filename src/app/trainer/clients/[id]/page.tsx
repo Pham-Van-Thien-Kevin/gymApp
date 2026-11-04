@@ -2,9 +2,10 @@
 // dezelfde componenten als de gebruikersapp; RLS zorgt dat de trainer enkel
 // data van eigen cliënten krijgt.
 import Link from "next/link";
-import { getActiveAssignment, getBodyMetrics, getCheckins, getCurrentBlockTab, getImportBatches, getProgramLoads, getStrengthTests, getWorkouts } from "@/lib/data";
+import { getActiveAssignment, getBodyMetrics, getCheckins, getCurrentBlockTab, getImportBatches, getPlannedWorkouts, getProgramLoads, getStrengthTests, getWorkouts, numericBlock } from "@/lib/data";
 import { formatLongDate, todayISO } from "@/lib/dates";
 import { clientFlags } from "@/lib/flags";
+import { upcomingProgramDays } from "@/lib/program";
 import { isUuid } from "@/lib/parse";
 import { requireClient } from "@/lib/trainer";
 import { createClient } from "@/lib/supabase/server";
@@ -18,6 +19,7 @@ import { CheckinList } from "@/components/checkin-list";
 import { ProgramView } from "@/components/program-view";
 import { BlockProgress } from "@/components/block-progress";
 import { WorkoutList } from "@/components/workout-list";
+import { UpcomingList } from "@/components/upcoming-list";
 import { BodyWeightPanel } from "@/components/progress/body-weight-panel";
 import { ProgressPanel } from "@/components/progress/progress-panel";
 import { StrengthTable } from "@/components/progress/strength-table";
@@ -25,6 +27,7 @@ import { assignProgram } from "../../actions";
 
 const sections = [
   { id: "schema", label: "Schema" },
+  { id: "komend", label: "Komend" },
   { id: "historiek", label: "Historiek" },
   { id: "progressie", label: "Progressie" },
   { id: "maxima", label: "Maxima" },
@@ -37,13 +40,16 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/t
   if (!isUuid(id)) notFound();
   const { trainer, client } = await requireClient(id);
   const { exercise } = await searchParams;
-  const flags = clientFlags(client, todayISO());
+  const today = todayISO();
+  const flags = clientFlags(client, today);
 
   const supabase = await createClient();
-  const [assignment, workouts, tests, metrics, checkins, imports, programs, currentBlock] = await Promise.all([
+  const [assignment, workouts, planned, tests, metrics, checkins, imports, programs, currentBlock] = await Promise.all([
     getActiveAssignment(id),
+    // Tot en met vandaag; de toekomst staat apart onder "Komende trainingen".
     // ±7 blokweken van 4 sessies: per week opgedeeld blijft dat overzichtelijk.
-    getWorkouts(id, { limit: 30 }),
+    getWorkouts(id, { limit: 30, until: today }),
+    getPlannedWorkouts(id, 200),
     getStrengthTests(id),
     getBodyMetrics(id),
     getCheckins(id, 12),
@@ -54,8 +60,13 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/t
   // Voorgestelde gewichten op basis van de geschatte 1RM's van deze cliënt
   // (RLS laat de trainer de sets van eigen cliënten lezen).
   const loads = assignment
-    ? await getProgramLoads(id, assignment.program.program_days.flatMap((day) => day.program_exercises), todayISO())
+    ? await getProgramLoads(id, assignment.program.program_days.flatMap((day) => day.program_exercises), today)
     : {};
+  // Komend: sessies uit de sheet na vandaag en de schemadagen van de komende twee weken.
+  const upcomingSheet = planned.items.filter((workout) => workout.date > today);
+  const upcomingSchema = assignment
+    ? upcomingProgramDays(assignment.program.program_days, numericBlock(assignment.program), assignment.start_date, today)
+    : [];
 
   return (
     <>
@@ -136,6 +147,10 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/t
               </ButtonLink>
             )}
           </Card>
+        </Section>
+
+        <Section id="komend" title="Komende trainingen" className="scroll-mt-16 xl:col-span-2">
+          <UpcomingList planned={upcomingSheet} programDays={upcomingSchema} hrefBase={`/trainer/clients/${id}/workouts`} />
         </Section>
 
         <Section id="historiek" title="Historiek" className="scroll-mt-16">

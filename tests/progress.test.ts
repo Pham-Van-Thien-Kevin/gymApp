@@ -149,3 +149,28 @@ describe("groupByBlockWeek", () => {
     ]);
   });
 });
+
+describe("upcomingProgramDays", () => {
+  const day = (id: string, weekday: number | null) => ({ id, name: id, position: 0, weekday, program_exercises: [] });
+
+  it("rekent de schemadagen van de komende twee weken uit op hun weekdag, vanaf morgen", async () => {
+    const { upcomingProgramDays } = await import("@/lib/program");
+    const noBlock = { block_weeks: null, rpe_start: null, rpe_end: null };
+    // Woensdag 4 november 2026; maandag (0) en donderdag (3) zijn trainingsdagen, "vrij" heeft geen weekdag.
+    const upcoming = upcomingProgramDays([day("ma", 0), day("do", 3), day("vrij", null)], noBlock, "2026-10-01", "2026-11-04");
+    expect(upcoming.map((u) => [u.date, u.day.id, u.rpe])).toEqual([
+      ["2026-11-05", "do", null],
+      ["2026-11-09", "ma", null],
+      ["2026-11-12", "do", null],
+      ["2026-11-16", "ma", null],
+    ]);
+  });
+
+  it("stopt na de laatste blokweek en geeft de RPE van elke week mee", async () => {
+    const { upcomingProgramDays } = await import("@/lib/program");
+    // Blok van 2 weken (RPE 7 → 8), gestart maandag 26 oktober: na zondag 8 november is het voorbij.
+    const block = { block_weeks: 2, rpe_start: 7, rpe_end: 8 };
+    const upcoming = upcomingProgramDays([day("do", 3)], block, "2026-10-26", "2026-11-04");
+    expect(upcoming.map((u) => [u.date, u.rpe])).toEqual([["2026-11-05", 8]]);
+  });
+});

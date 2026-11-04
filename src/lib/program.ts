@@ -1,4 +1,4 @@
-import { WEEKDAYS, daysBetween, startOfWeek, weekdayIndex } from "@/lib/dates";
+import { WEEKDAYS, addDays, daysBetween, startOfWeek, weekdayIndex } from "@/lib/dates";
 import type { ProgramDay, ProgramExercise } from "@/lib/types";
 
 export type TodayPlan =
@@ -71,6 +71,28 @@ export function currentBlock(settings: BlockSettings, startDate: string, today: 
 
 /** "7" of "7,5": zelfde notatie als een ingetypt RPE-doel. */
 export const formatRpeTarget = (rpe: number) => String(rpe).replace(".", ",");
+
+export type UpcomingProgramDay = { date: string; day: ProgramDay; rpe: number | null };
+
+/**
+ * Welke schemadagen komen eraan? Enkel dagen met een vaste weekdag (zonder
+ * weekdag weet je niet wanneer de sporter traint), vanaf morgen en `horizon`
+ * dagen ver. Bij een blok stoppen we na de laatste blokweek en geven we de RPE
+ * van die week mee.
+ */
+export function upcomingProgramDays(days: ProgramDay[], settings: BlockSettings, startDate: string, today: string, horizon = 14): UpcomingProgramDay[] {
+  const upcoming: UpcomingProgramDay[] = [];
+  for (let offset = 1; offset <= horizon; offset++) {
+    const date = addDays(today, offset);
+    if (date < startDate) continue;
+    const block = currentBlock(settings, startDate, date);
+    if (block?.finished) break;
+    for (const day of days) {
+      if (day.weekday === weekdayIndex(date)) upcoming.push({ date, day, rpe: block?.rpe ?? null });
+    }
+  }
+  return upcoming;
+}
 
 /** De schemadagen met de RPE van deze blokweek in plaats van de vaste RPE. */
 export function withBlockRpe(days: ProgramDay[], block: BlockStatus | null): ProgramDay[] {
