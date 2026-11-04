@@ -25,6 +25,7 @@ import { groupByCategory } from "@/lib/exercises";
 import { RpeTable } from "@/components/rpe-table";
 import { clearDraft, createExercise, fetchExerciseHistory, saveDraft, saveWorkout } from "./actions";
 import { PlatesLine, PrLine, SuggestionLine, TargetPicker, type Suggestion } from "./lift-insights";
+import { ExerciseStats, HoldForStats } from "./exercise-stats";
 import type { DraftExercise, DraftSet, WorkoutDraft } from "./types";
 
 type Props = {
@@ -48,6 +49,14 @@ function asDraft(value: unknown): WorkoutDraft | null {
   if (!draft || draft.version !== 1 || !Array.isArray(draft.exercises) || !Array.isArray(draft.cardio)) return null;
   return draft.exercises.length > 0 || draft.cardio.length > 0 ? draft : null;
 }
+
+/** Hoort een concept bij dezelfde sessie (zelfde geplande training of schemadag)? */
+function sameSession(a: WorkoutDraft, b: WorkoutDraft) {
+  return (a.plannedWorkoutId ?? null) === (b.plannedWorkoutId ?? null) && a.programDayId === b.programDayId;
+}
+
+/** 11:12 */
+const formatTime = (ms: number) => new Date(ms).toLocaleTimeString("nl-BE", { hour: "2-digit", minute: "2-digit" });
 
 /** Na een wijziging zoveel ms wachten voor we naar de server schrijven (niet bij elke toets). */
 const AUTOSAVE_DELAY = 1500;
@@ -205,21 +214,44 @@ export function WorkoutLogger(props: Props) {
   const storageKey = `liftlog:draft:${props.memberId}`;
   const savedDraftJson = useSyncExternalStore(subscribeToStorage, () => readStorage(storageKey), () => null);
 
-  const [draft, setDraft] = useState<WorkoutDraft>(() => initialDraft(props));
+  const [draftState, setDraft] = useState<WorkoutDraft>(() => initialDraft(props));
   const [dirty, setDirty] = useState(false);
   const [library, setLibrary] = useState(props.exercises);
   const [previous, setPrevious] = useState(props.previous);
   const [stats, setStats] = useState(props.stats);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, startSaving] = useTransition();
-  // Automatisch opslaan op de server: wanneer het laatst lukte (of mislukte).
+  // Automatisch opslaan op de server: wanneer het laatst lukte (of mislukte),
+  // en of er nog een wijziging wacht om opgeslagen te worden.
   const [autosave, setAutosave] = useState<{ at: number; ok: boolean } | null>(null);
+  const [autosavePending, setAutosavePending] = useState(false);
   const [serverDraftDismissed, setServerDraftDismissed] = useState(false);
 
+  // Een niet-opgeslagen training om verder te loggen: de nieuwste van dit toestel
+  // (localStorage) en de server.
+  let restorable: WorkoutDraft | null = null;
+  if (!dirty) {
+    let local: WorkoutDraft | null = null;
+    try {
+      local = savedDraftJson ? asDraft(JSON.parse(savedDraftJson)) : null;
+    } catch {
+      local = null;
+    }
+    const remote = serverDraftDismissed ? null : asDraft(props.serverDraft);
+    restorable = [local, remote].filter((d): d is WorkoutDraft => d !== null).sort((a, b) => b.savedAt - a.savedAt)[0] ?? null;
+  }
+  // Is het dezelfde sessie die je nu opent? Dan staat ze er meteen terug, zonder
+  // te vragen: je sloot de app en gaat verder waar je was. Een andere sessie
+  // vragen we eerst (zie de melding "Niet-opgeslagen training gevonden").
+  const restored = restorable && sameSession(restorable, draftState) ? restorable : null;
+  const draft = restored ?? draftState;
+
   // Elke wijziging gaat via update(): zo weten we dat de gebruiker begonnen is.
+  // De eerste wijziging bouwt verder op wat je ziet (ook een hersteld concept).
   function update(change: (current: WorkoutDraft) => WorkoutDraft) {
-    setDraft((current) => change(current));
+    setDraft((current) => change(dirty ? current : draft));
     setDirty(true);
+    setAutosavePending(true);
   }
   function updateExercise(key: string, change: (exercise: DraftExercise) => DraftExercise) {
     update((d) => ({ ...d, exercises: d.exercises.map((e) => (e.key === key ? change(e) : e)) }));
@@ -241,22 +273,27 @@ export function WorkoutLogger(props: Props) {
     const timer = setTimeout(async () => {
       const result = await saveDraft({ ...draft, savedAt: Date.now() });
       setAutosave({ at: Date.now(), ok: result.ok });
+      setAutosavePending(false);
     }, AUTOSAVE_DELAY);
     return () => clearTimeout(timer);
   }, [dirty, draft]);
 
-  // Een niet-opgeslagen training om verder te loggen: de nieuwste van dit toestel
-  // (localStorage) en de server.
-  let restorable: WorkoutDraft | null = null;
-  if (!dirty) {
-    let local: WorkoutDraft | null = null;
-    try {
-      local = savedDraftJson ? asDraft(JSON.parse(savedDraftJson)) : null;
-    } catch {
-      local = null;
+  // Sluit je de app of wissel je van app binnen die anderhalve seconde? Dan
+  // meteen naar de server, zodat je ook op een ander toestel verder kan.
+  useEffect(() => {
+    if (!dirty) return;
+    function flush() {
+      if (document.visibilityState === "hidden") void saveDraft({ ...draft, savedAt: Date.now() });
     }
-    const remote = serverDraftDismissed ? null : asDraft(props.serverDraft);
-    restorable = [local, remote].filter((d): d is WorkoutDraft => d !== null).sort((a, b) => b.savedAt - a.savedAt)[0] ?? null;
+    document.addEventListener("visibilitychange", flush);
+    return () => document.removeEventListener("visibilitychange", flush);
+  }, [dirty, draft]);
+
+  /** Concept weggooien: op dit toestel én op de server. */
+  function discardDraft() {
+    writeStorage(storageKey, null);
+    setServerDraftDismissed(true);
+    void clearDraft();
   }
 
   // Alles afgevinkt? Dan bieden we aan om de training naar je coach te sturen.
@@ -319,7 +356,8 @@ export function WorkoutLogger(props: Props) {
   function save() {
     setError(null);
     startSaving(async () => {
-      // Reps uit het doel invullen voor elke set waar je kg of RPE invulde of die je afvinkte.
+      // Lege reps uit het doel invullen voor elke set waar je kg of RPE invulde of die je afvinkte.
+      // Reps die je zelf aanpaste (bv. 5 in plaats van 8) blijven staan.
       const withReps: WorkoutDraft = {
         ...draft,
         exercises: draft.exercises.map((e) => ({
@@ -339,7 +377,36 @@ export function WorkoutLogger(props: Props) {
 
   return (
     <div>
-      {restorable && (
+      {/* Altijd zichtbaar bovenaan (onder de kop): zo zie je dat je niets kwijt bent.
+          aria-live: een schermlezer hoort het als het automatisch opslaan lukt of mislukt. */}
+      <div className="sticky top-14 z-20 -mx-4 mb-6 flex min-h-11 items-center justify-between gap-3 border-b border-chalk/15 bg-ink px-4 py-2 text-sm">
+        <p aria-live="polite" className={cn(autosave && !autosave.ok ? "text-chalk" : "text-chalk/70")}>
+          {autosavePending ? (
+            "Opslaan…"
+          ) : autosave ? (
+            autosave.ok ? (
+              <>
+                <span aria-hidden="true" className="text-accent">✓ </span>Automatisch opgeslagen om {formatTime(autosave.at)}
+              </>
+            ) : (
+              "Opgeslagen op dit toestel; de server lukte niet. We proberen opnieuw bij je volgende wijziging."
+            )
+          ) : restored ? (
+            <>
+              <span aria-hidden="true" className="text-accent">✓ </span>Hersteld: je training van {formatTime(restored.savedAt)}
+            </>
+          ) : (
+            "Je training wordt automatisch opgeslagen."
+          )}
+        </p>
+        {restored && (
+          <button type="button" onClick={discardDraft} className="min-h-9 shrink-0 text-chalk/70 underline underline-offset-4 hover:text-chalk">
+            Opnieuw beginnen
+          </button>
+        )}
+      </div>
+
+      {restorable && !restored && (
         <div role="status" className="mb-6 rounded-xl border border-accent p-4">
           <p className="font-semibold">Niet-opgeslagen training gevonden</p>
           <p className="mt-1 text-sm text-chalk/70">
@@ -349,15 +416,7 @@ export function WorkoutLogger(props: Props) {
             <Button size="sm" onClick={() => update(() => restorable!)}>
               Verder loggen
             </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => {
-                writeStorage(storageKey, null);
-                setServerDraftDismissed(true);
-                void clearDraft();
-              }}
-            >
+            <Button size="sm" variant="ghost" onClick={discardDraft}>
               Verwijderen
             </Button>
           </div>
@@ -409,13 +468,29 @@ export function WorkoutLogger(props: Props) {
           const plateWeight = nextSetWeight ?? suggestion?.weight ?? null;
           return (
             <li key={exercise.key} className="overflow-hidden rounded-xl border border-chalk/15">
+              <ExerciseStats
+                id={`stats-${exercise.key}`}
+                name={exercise.name}
+                sets={exercise.sets.map((set) => ({
+                  reps: parseInteger(repsFor(exercise, set)),
+                  weight: parseDecimal(set.weight),
+                  e1rm: set.done ? setE1rm(set, exercise) : null,
+                  done: set.done,
+                }))}
+                previous={prev}
+                stats={stats[exercise.exerciseId]}
+              />
               <div className="flex items-start justify-between gap-3 border-b border-chalk/15 p-4">
                 <div className="min-w-0">
-                  <h2 className="text-xl font-bold">
-                    <span className="mr-2 text-chalk/40 tabular-nums">{index + 1}</span>
-                    {exercise.name}
-                    {exercise.optional && <span className="ml-2 text-sm font-normal text-chalk/60">optioneel</span>}
-                  </h2>
+                  {/* Houd de naam ingedrukt om je stats van deze oefening te zien. */}
+                  <HoldForStats popoverId={`stats-${exercise.key}`} label={`Stats van ${exercise.name} (ingedrukt houden)`}>
+                    <h2 className="text-xl font-bold">
+                      <span className="mr-2 text-chalk/40 tabular-nums">{index + 1}</span>
+                      {exercise.name}
+                      {exercise.optional && <span className="ml-2 text-sm font-normal text-chalk/60">optioneel</span>}
+                    </h2>
+                    <p className="text-xs text-chalk/50">Ingedrukt houden voor je stats</p>
+                  </HoldForStats>
                   {!exercise.customTarget && (exercise.targetSets || exercise.targetReps || exercise.targetIntensity) && (
                     <p className="mt-1 text-sm">
                       <span className="text-chalk/60">Doel </span>
@@ -489,8 +564,17 @@ export function WorkoutLogger(props: Props) {
                           </span>
                         )}
                       </th>
-                      {/* Reps typ je niet: ze komen uit je doel (bij "8-10" de ondergrens). Enkel kg en RPE invullen. */}
-                      <td className="px-1 text-center text-lg font-semibold tabular-nums">{repsFor(exercise, set) || "–"}</td>
+                      {/* Reps staan op je doel (bij "8-10" de ondergrens). Haalde je ze niet, typ dan wat je wel deed. */}
+                      <td className="px-1">
+                        <input
+                          aria-label={`${exercise.name} set ${setIndex + 1} reps`}
+                          inputMode="numeric"
+                          className="field min-h-11 px-2 text-center tabular-nums"
+                          placeholder={lowerBound(targetFor(exercise).reps) || "–"}
+                          value={set.reps}
+                          onChange={(event) => updateSet(exercise.key, set.key, { reps: event.target.value })}
+                        />
+                      </td>
                       <td className="px-1">
                         <input
                           aria-label={`${exercise.name} set ${setIndex + 1} gewicht in kg`}
@@ -674,14 +758,6 @@ export function WorkoutLogger(props: Props) {
         <Button size="lg" onClick={save} disabled={isSaving}>
           {isSaving ? "Opslaan…" : saveLabel}
         </Button>
-        {/* aria-live: een schermlezer hoort het als het automatisch opslaan lukt of mislukt. */}
-        <p aria-live="polite" className="text-center text-sm text-chalk/60">
-          {autosave
-            ? autosave.ok
-              ? `Automatisch opgeslagen om ${new Date(autosave.at).toLocaleTimeString("nl-BE", { hour: "2-digit", minute: "2-digit" })}`
-              : "Automatisch opslaan lukte niet; je training staat nog op dit toestel."
-            : "Je training wordt automatisch opgeslagen terwijl je logt."}
-        </p>
       </div>
     </div>
   );
