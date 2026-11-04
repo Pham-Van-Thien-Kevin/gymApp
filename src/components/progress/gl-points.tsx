@@ -24,7 +24,7 @@ export function GlPoints({ total, bodyweight, initialSex }: { total: number; bod
   return (
     <div className="rounded-xl border border-chalk/15 p-4">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-sm text-chalk/60">GL-punten</p>
+        <p className="whitespace-nowrap text-sm text-chalk/60">GL-punten</p>
         <div role="radiogroup" aria-label="Categorie voor GL-punten" className="flex overflow-hidden rounded-md border border-chalk/30 text-xs font-semibold">
           {(["M", "V"] as const).map((option) => (
             <button
