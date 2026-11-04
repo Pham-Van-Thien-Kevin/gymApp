@@ -131,3 +131,21 @@ describe("blokken verlopen", () => {
     expect(isExpiredBlock("DEC2026", "JAN2027")).toBe(true);
   });
 });
+
+describe("groupByBlockWeek", () => {
+  it("groepeert per blokweek uit de sheet, nieuwste week eerst; vrije trainingen volgen de kalender", async () => {
+    const { groupByBlockWeek } = await import("@/lib/blocks");
+    const weeks = groupByBlockWeek([
+      { date: "2026-10-27", status: "completed" as const, title: "Vrije training", sheetTab: null },
+      // Uit de sheet: "Week 4" van augustus, ook al valt 6 sep al in september.
+      { date: "2026-09-06", status: "planned" as const, title: "Week 4 · Sessie 4", sheetTab: "AUG2026" },
+      { date: "2026-08-25", status: "completed" as const, title: "Week 4 · Sessie 2", sheetTab: "AUG2026" },
+      { date: "2026-08-18", status: "completed" as const, title: "Week 3 · Sessie 2", sheetTab: "AUG2026" },
+    ]);
+    expect(weeks.map((w) => [w.month, w.week, w.items.length])).toEqual([
+      [9, 4, 1], // oktober, week 4 (maandag 26 okt)
+      [7, 4, 2],
+      [7, 3, 1],
+    ]);
+  });
+});

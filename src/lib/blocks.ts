@@ -37,6 +37,24 @@ function placeRow(row: StatusRow) {
   return { ...placeWorkout(row.date), importTab: null };
 }
 
+export type BlockWeek<T> = { key: string; year: number; month: number; week: number; items: T[] };
+
+/**
+ * Trainingen per blokweek ("augustus, week 4"), nieuwste week eerst. Binnen een
+ * week blijft de volgorde van de lijst behouden. Zelfde indeling als placeRow.
+ */
+export function groupByBlockWeek<T extends StatusRow>(rows: T[]): BlockWeek<T>[] {
+  const groups = new Map<string, BlockWeek<T>>();
+  for (const row of rows) {
+    const place = placeRow(row);
+    const key = `${place.tab}-${place.week}`;
+    const group = groups.get(key) ?? { key, year: place.year, month: place.month, week: place.week, items: [] };
+    group.items.push(row);
+    groups.set(key, group);
+  }
+  return [...groups.values()].sort((a, b) => b.year - a.year || b.month - a.month || b.week - a.week);
+}
+
 /**
  * Per maand en per week: hoeveel sessies gedaan van hoeveel. "total" telt de
  * afgewerkte plus de geplande (ook de gemiste), dus een gemiste sessie geeft 3/4.

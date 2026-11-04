@@ -42,7 +42,8 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/t
   const supabase = await createClient();
   const [assignment, workouts, tests, metrics, checkins, imports, programs, currentBlock] = await Promise.all([
     getActiveAssignment(id),
-    getWorkouts(id, { limit: 15 }),
+    // ±7 blokweken van 4 sessies: per week opgedeeld blijft dat overzichtelijk.
+    getWorkouts(id, { limit: 30 }),
     getStrengthTests(id),
     getBodyMetrics(id),
     getCheckins(id, 12),
@@ -138,7 +139,7 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/t
         </Section>
 
         <Section id="historiek" title="Historiek" className="scroll-mt-16">
-          <WorkoutList workouts={workouts.items} hrefBase={`/trainer/clients/${id}/workouts`} emptyText="Nog geen trainingen." currentBlock={currentBlock} />
+          <WorkoutList workouts={workouts.items} hrefBase={`/trainer/clients/${id}/workouts`} emptyText="Nog geen trainingen." currentBlock={currentBlock} byWeek />
           {workouts.total > workouts.items.length && (
             <p className="mt-3 text-sm text-chalk/60">Laatste {workouts.items.length} van {workouts.total} trainingen.</p>
           )}
