@@ -58,8 +58,9 @@ export default async function ClientWorkoutPage({ params }: PageProps<"/trainer/
           <Card className="mb-6">
             <h2 className="font-semibold">Voorgestelde gewichten</h2>
             <p className="mb-3 text-sm text-chalk/60">Je cliënt ziet deze gewichten in de logger. Leeg laten = de app rekent zelf een voorstel uit (grijs).</p>
-            {/* key: na het opslaan tonen de velden de opgeslagen waarden (defaultValue telt enkel bij de eerste render). */}
-            <ActionForm key={exercises.map((we) => we.coach_weight ?? "").join("|")} action={setCoachWeights.bind(null, workout.id)}>
+            {/* Geen key: React 19 zet het formulier na het opslaan terug op de (nieuwe) defaultValues,
+                en zo blijft de melding "Gewichten opgeslagen" staan. */}
+            <ActionForm action={setCoachWeights.bind(null, workout.id)}>
               <ul className="flex flex-col gap-3">
                 {exercises.map((we) => {
                   const auto = suggestFromTarget(stats[we.exercise!.id]?.reference?.e1rm, we.target_reps, we.target_intensity);

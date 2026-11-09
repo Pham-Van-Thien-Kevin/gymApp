@@ -184,8 +184,8 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/t
           )}
           <Card>
             <h3 className="mb-3 font-semibold">Nieuw blok</h3>
-            {/* key: na het aanmaken schuiven de voorgestelde waarden op naar het volgende blok. */}
-            <ActionForm key={`${nextNumber}-${nextStart}`} action={createBlock.bind(null, id)}>
+            {/* Na het aanmaken zet React 19 het formulier terug op de nieuwe defaultValues: het volgende blok. */}
+            <ActionForm action={createBlock.bind(null, id)}>
               <div className="grid gap-3 sm:grid-cols-[6rem_1fr_6rem_auto] sm:items-end">
                 <Field label="Blok" name="number" type="number" inputMode="numeric" min={1} max={99} required defaultValue={nextNumber} />
                 <Field label="Start (maandag)" name="start_date" type="date" required defaultValue={nextStart} />
