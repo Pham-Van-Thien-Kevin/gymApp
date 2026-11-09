@@ -831,6 +831,7 @@ declare
   v_workout uuid;
   v_item jsonb;
   v_we uuid;
+  v_coach jsonb := '{}'::jsonb;  -- oefening-id → gewicht dat de coach voorstelde
 begin
   if public.current_app_role() is distinct from 'member' then
     raise exception 'Alleen members kunnen trainingen loggen.';
@@ -857,6 +858,12 @@ begin
       raise exception 'Deze geplande training bestaat niet (meer) of is al afgewerkt.';
     end if;
 
+    -- Gewichten van de coach onthouden: ze blijven bij de oefening, zodat de
+    -- coach achteraf ziet wat hij voorstelde en wat je echt deed.
+    select coalesce(jsonb_object_agg(exercise_id, coach_weight), '{}'::jsonb) into v_coach
+    from public.workout_exercises
+    where workout_id = v_workout and coach_weight is not null;
+
     -- De planning maakt plaats voor wat je echt deed (sets gaan mee via "on delete cascade").
     delete from public.workout_exercises where workout_id = v_workout;
     delete from public.cardio_entries where workout_id = v_workout;
@@ -876,7 +883,7 @@ begin
 
   for v_item in select * from jsonb_array_elements(coalesce(payload -> 'exercises', '[]'::jsonb)) loop
     insert into public.workout_exercises (
-      workout_id, exercise_id, position, target_sets, target_reps, target_intensity, notes, optional, performed
+      workout_id, exercise_id, position, target_sets, target_reps, target_intensity, notes, optional, performed, coach_weight
     ) values (
       v_workout,
       (v_item ->> 'exercise_id')::uuid,
@@ -887,7 +894,8 @@ begin
       nullif(trim(v_item ->> 'notes'), ''),
       coalesce((v_item ->> 'optional')::boolean, false),
       -- Een oefening zonder ingevulde sets is overgeslagen: bewaren als "niet uitgevoerd".
-      jsonb_array_length(coalesce(v_item -> 'sets', '[]'::jsonb)) > 0
+      jsonb_array_length(coalesce(v_item -> 'sets', '[]'::jsonb)) > 0,
+      (v_coach ->> (v_item ->> 'exercise_id'))::numeric
     )
     returning id into v_we;
 
@@ -941,6 +949,7 @@ declare
   v_workout_id uuid;
   v_item jsonb;
   v_we_id uuid;
+  v_coach jsonb;  -- "titel|oefening-id|positie" → gewicht van de coach (zie stap 2)
   n_workouts int := 0;
   n_exercises int := 0;
   n_sets int := 0;
@@ -968,6 +977,17 @@ begin
 
   -- 2. Per maandtab: vorige import van die tab vervangen.
   for v_tab in select * from jsonb_array_elements(coalesce(payload -> 'tabs', '[]'::jsonb)) loop
+    -- Gewichten die de coach bij geplande sessies van deze tab zette, onthouden
+    -- vóór het verwijderen. Dezelfde sessie (titel) met dezelfde oefening op
+    -- dezelfde plaats krijgt ze straks terug: een herimport wist ze niet.
+    select coalesce(jsonb_object_agg(w.title || '|' || we.exercise_id || '|' || we.position, we.coach_weight), '{}'::jsonb)
+    into v_coach
+    from public.import_batches b
+    join public.workouts w on w.import_batch_id = b.id
+    join public.workout_exercises we on we.workout_id = w.id
+    where b.member_id = v_member and b.sheet_tab = v_tab ->> 'sheet_tab'
+      and w.title is not null and we.coach_weight is not null;
+
     delete from public.import_batches
     where member_id = v_member and sheet_tab = v_tab ->> 'sheet_tab';
 
@@ -1009,7 +1029,7 @@ begin
 
         insert into public.workout_exercises (
           workout_id, exercise_id, position, target_sets, target_reps, target_intensity,
-          actual_rpe, notes, optional, performed, raw
+          actual_rpe, notes, optional, performed, raw, coach_weight
         ) values (
           v_workout_id,
           v_exercise_id,
@@ -1021,7 +1041,8 @@ begin
           v_item ->> 'notes',
           coalesce((v_item ->> 'optional')::boolean, false),
           coalesce((v_item ->> 'performed')::boolean, true),
-          v_item -> 'raw'
+          v_item -> 'raw',
+          (v_coach ->> ((v_workout ->> 'title') || '|' || v_exercise_id || '|' || coalesce((v_item ->> 'position')::int, 0)))::numeric
         )
         returning id into v_we_id;
         n_exercises := n_exercises + 1;
