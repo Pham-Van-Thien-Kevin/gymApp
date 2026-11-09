@@ -127,6 +127,17 @@
   input[type="number"] {
     -moz-appearance: textfield;
   }
+
+  /* iOS Safari geeft een datumveld een eigen minimumbreedte: het stak buiten zijn kaart. */
+  input[type="date"] {
+    min-width: 0;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  /* Zonder native opmaak centreert iOS de datum; links zoals de andere velden. */
+  input[type="date"]::-webkit-date-and-time-value {
+    text-align: left;
+  }
 }
 
 @layer components {
