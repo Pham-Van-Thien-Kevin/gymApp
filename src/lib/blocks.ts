@@ -1,10 +1,10 @@
 // Maanden en weken zoals in de coachingsheet. Een week hoort bij de maand van
 // haar maandag, en week 1 begint op de eerste maandag van de maand: dezelfde
 // indeling als de import en de export, zodat "oktober, week 3" overal hetzelfde is.
-import { addDays, daysBetween, startOfWeek } from "@/lib/dates";
+import { addDays, daysBetween, formatDate, startOfWeek } from "@/lib/dates";
 import { firstMondayOfMonth } from "@/lib/import/dates";
 import { parseMonthTab } from "@/lib/import/values";
-import type { WorkoutStatus } from "@/lib/types";
+import type { TrainingBlock, WorkoutStatus } from "@/lib/types";
 
 export const MONTH_TABS = ["JAN", "FEB", "MRT", "APR", "MEI", "JUN", "JUL", "AUG", "SEP", "OKT", "NOV", "DEC"];
 
@@ -37,22 +37,60 @@ function placeRow(row: StatusRow) {
   return { ...placeWorkout(row.date), importTab: null };
 }
 
-export type BlockWeek<T> = { key: string; year: number; month: number; week: number; items: T[] };
+// --- Blokken van de trainer ----------------------------------------------------
+// Een trainer kan per cliënt blokken aanmaken: "Blok 1" vanaf maandag 2 november,
+// 4 weken lang. Een training die daarin valt, hoort bij "Blok 1 · Week 2",
+// ongeacht de maand. Valt ze in geen blok, dan volgen we de maand (zie placeRow).
+
+export type BlockRange = Pick<TrainingBlock, "number" | "start_date" | "weeks">;
+
+/** In welk blok en welke week valt deze datum? Null als ze in geen enkel blok valt. */
+export function placeInBlock(date: string, blocks: BlockRange[]) {
+  for (const block of blocks) {
+    const days = daysBetween(block.start_date, date);
+    if (days >= 0 && days < block.weeks * 7) {
+      const weekIndex = Math.floor(days / 7);
+      return { block: block.number, week: weekIndex + 1, monday: addDays(block.start_date, weekIndex * 7) };
+    }
+  }
+  return null;
+}
+
+/** "2 – 8 nov." of over de maandgrens "30 nov. – 6 dec.": de dagen van een week. */
+export function formatWeekRange(monday: string) {
+  const sunday = addDays(monday, 6);
+  const sameMonth = monday.slice(0, 7) === sunday.slice(0, 7);
+  return `${formatDate(monday, sameMonth ? { day: "numeric" } : undefined)} – ${formatDate(sunday)}`;
+}
+
+/** block: het blok van de trainer, of null als de week bij een maand hoort. */
+export type BlockWeek<T> = { key: string; block: number | null; year: number; month: number; week: number; monday: string; items: T[] };
 
 /**
- * Trainingen per blokweek ("augustus, week 4"), nieuwste week eerst. Binnen een
- * week blijft de volgorde van de lijst behouden. Zelfde indeling als placeRow.
+ * Trainingen per blokweek, nieuwste week eerst. Valt een training in een blok
+ * van de trainer, dan "Blok 1 · Week 2"; anders de maand en week zoals placeRow.
+ * Binnen een week blijft de volgorde van de lijst behouden.
  */
-export function groupByBlockWeek<T extends StatusRow>(rows: T[]): BlockWeek<T>[] {
+export function groupByBlockWeek<T extends StatusRow>(rows: T[], blocks: BlockRange[] = []): BlockWeek<T>[] {
   const groups = new Map<string, BlockWeek<T>>();
   for (const row of rows) {
+    const inBlock = placeInBlock(row.date, blocks);
     const place = placeRow(row);
-    const key = `${place.tab}-${place.week}`;
-    const group = groups.get(key) ?? { key, year: place.year, month: place.month, week: place.week, items: [] };
+    const key = inBlock ? `blok-${inBlock.block}-${inBlock.week}` : `${place.tab}-${place.week}`;
+    const group = groups.get(key) ?? {
+      key,
+      block: inBlock?.block ?? null,
+      year: place.year,
+      month: place.month,
+      week: inBlock?.week ?? place.week,
+      // De maandag van de sheetweek: week 1 is de eerste maandag van de maand.
+      monday: inBlock?.monday ?? addDays(firstMondayOfMonth(place.year, place.month), (place.week - 1) * 7),
+      items: [],
+    };
     group.items.push(row);
     groups.set(key, group);
   }
-  return [...groups.values()].sort((a, b) => b.year - a.year || b.month - a.month || b.week - a.week);
+  return [...groups.values()].sort((a, b) => b.monday.localeCompare(a.monday) || b.week - a.week);
 }
 
 /**

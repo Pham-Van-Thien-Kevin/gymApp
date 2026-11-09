@@ -2,7 +2,7 @@
 // historiek (member) en de cliëntdetailpagina (trainer), met een eigen hrefBase.
 import Link from "next/link";
 import { Badge, EmptyState } from "@/components/ui/layout";
-import { groupByBlockWeek, isExpiredBlock } from "@/lib/blocks";
+import { formatWeekRange, groupByBlockWeek, isExpiredBlock, type BlockRange } from "@/lib/blocks";
 import { formatDate, relativeDays } from "@/lib/dates";
 import type { WorkoutListItem } from "@/lib/types";
 
@@ -12,6 +12,7 @@ export function WorkoutList({
   emptyText = "Nog geen trainingen gelogd.",
   currentBlock = null,
   byWeek = false,
+  blocks = [],
 }: {
   workouts: WorkoutListItem[];
   hrefBase: string;
@@ -20,23 +21,33 @@ export function WorkoutList({
   currentBlock?: string | null;
   /** Opdelen per blokweek uit de sheet ("Augustus 2026 · Week 4"), zoals de trainer het plant. */
   byWeek?: boolean;
+  /** Blokken van de trainer: een training daarin heet "Blok 1 · Week 2" in plaats van de maand. */
+  blocks?: BlockRange[];
 }) {
   if (workouts.length === 0) return <EmptyState title={emptyText} />;
 
   if (!byWeek) return <Rows workouts={workouts} hrefBase={hrefBase} currentBlock={currentBlock} />;
 
   // groupByBlockWeek verwacht sheetTab (zoals in blocks.ts); de lijst heeft sheet_tab uit de database.
-  const weeks = groupByBlockWeek(workouts.map((workout) => ({ ...workout, sheetTab: workout.sheet_tab })));
+  const weeks = groupByBlockWeek(workouts.map((workout) => ({ ...workout, sheetTab: workout.sheet_tab })), blocks);
   return (
     <div className="flex flex-col gap-6">
       {weeks.map((week) => {
-        const monthName = formatDate(`${week.year}-${String(week.month + 1).padStart(2, "0")}-01`, { month: "long", year: "numeric" });
+        // "Blok 1" als de week in een blok van de trainer valt, anders de maand ("oktober 2026").
+        const name =
+          week.block !== null
+            ? `Blok ${week.block}`
+            : formatDate(`${week.year}-${String(week.month + 1).padStart(2, "0")}-01`, { month: "long", year: "numeric" });
+        const days = formatWeekRange(week.monday);
         const done = week.items.filter((workout) => workout.status === "completed").length;
         return (
-          <section key={week.key} aria-label={`${monthName}, week ${week.week}`}>
+          <section key={week.key} aria-label={`${name}, week ${week.week}, ${days}`}>
             <h3 className="mb-2 flex items-baseline justify-between gap-3 text-sm">
-              <span className="font-semibold">
-                <span className="capitalize">{monthName}</span> · Week {week.week}
+              <span>
+                <span className="font-semibold">
+                  <span className="capitalize">{name}</span> · Week {week.week}
+                </span>
+                <span className="ml-2 text-chalk/60 tabular-nums">{days}</span>
               </span>
               <span className="text-chalk/60 tabular-nums">
                 {done}/{week.items.length} gedaan

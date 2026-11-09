@@ -193,11 +193,14 @@ function targetFor(exercise: DraftExercise) {
  * Voorgesteld gewicht: geschat 1RM × percentage uit de RPE-tabel voor het doel
  * (ondergrens van reps en RPE). Geen doel-RPE of nog geen geschiedenis → geen voorstel.
  */
-function suggestionFor(exercise: DraftExercise, stats: Record<string, LiftStats>): Suggestion | null {
+function suggestionFor(exercise: DraftExercise, stats: Record<string, LiftStats>, coachWeights: Record<string, number>): Suggestion | null {
+  // Zette je coach een gewicht voor deze oefening? Dan gaat dat voor op de berekening.
+  const coachWeight = coachWeights[exercise.exerciseId];
+  if (coachWeight !== undefined) return { source: "coach", weight: coachWeight };
   const reference = stats[exercise.exerciseId]?.reference ?? null;
   const target = targetFor(exercise);
   const suggestion = suggestFromTarget(reference?.e1rm, target.reps, target.rpe);
-  return suggestion && reference ? { ...suggestion, reference } : null;
+  return suggestion && reference ? { source: "app", ...suggestion, reference } : null;
 }
 
 /** Geschat 1RM van een ingevulde set. Zonder ingevulde RPE nemen we de doel-RPE. */
@@ -226,6 +229,12 @@ export function WorkoutLogger(props: Props) {
   const [autosave, setAutosave] = useState<{ at: number; ok: boolean } | null>(null);
   const [autosavePending, setAutosavePending] = useState(false);
   const [serverDraftDismissed, setServerDraftDismissed] = useState(false);
+  // Gewichten van de coach per oefening (uit de geplande sessie). Niet in het
+  // concept: zo gelden ze ook voor een concept dat je al begon vóór de coach ze zette.
+  const coachWeights: Record<string, number> = {};
+  for (const we of props.planned?.workout_exercises ?? []) {
+    if (we.exercise && we.coach_weight !== null) coachWeights[we.exercise.id] = we.coach_weight;
+  }
 
   // Een niet-opgeslagen training om verder te loggen: de nieuwste van dit toestel
   // (localStorage) en de server.
@@ -310,7 +319,7 @@ export function WorkoutLogger(props: Props) {
     // Eén tik = "gedaan zoals gepland": lege velden krijgen het doel en het
     // voorgestelde gewicht (of anders het gewicht van de vorige keer).
     const lastWeight = previous[exercise.exerciseId]?.sets.at(-1)?.weight;
-    const fallbackWeight = suggestionFor(exercise, stats)?.weight ?? lastWeight;
+    const fallbackWeight = suggestionFor(exercise, stats, coachWeights)?.weight ?? lastWeight;
     updateSet(exercise.key, set.key, {
       done: true,
       reps: repsFor(exercise, set),
@@ -455,7 +464,7 @@ export function WorkoutLogger(props: Props) {
         {draft.exercises.map((exercise, index) => {
           const prev = previous[exercise.exerciseId];
           const lastWeight = prev?.sets.at(-1)?.weight;
-          const suggestion = suggestionFor(exercise, stats);
+          const suggestion = suggestionFor(exercise, stats, coachWeights);
           const best = stats[exercise.exerciseId]?.best ?? null;
           // Een PR telt pas als er al een vorig record was (je eerste keer is altijd "beste").
           const isPr = (set: DraftSet) => {

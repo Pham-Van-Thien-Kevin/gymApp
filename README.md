@@ -116,6 +116,8 @@ Wil je `liftlog.jouwdomein.be` in plaats van `….vercel.app`? De app blijft op 
 | `2026-10-31-blokopbouw.sql` | Blokopbouw (RPE per week omhoog) en een geïmporteerde maand opschuiven |
 | `2026-10-31-blok-bij-afwerken.sql` | Een afgewerkte sessie blijft bij haar blok (planned_tab) |
 | `2026-10-31-concepten.sql` | Training automatisch opslaan op de server tijdens het loggen |
+| `2026-11-04-datum-verplaatsen.sql` | Trainer verplaatst een training naar een andere dag |
+| `2026-11-09-blokken-en-gewichten.sql` | Blokken per cliënt (Blok 1 · Week 2) en voorgestelde gewichten van de coach |
 
 ## Scripts
 

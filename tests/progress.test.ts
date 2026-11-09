@@ -150,6 +150,42 @@ describe("groupByBlockWeek", () => {
   });
 });
 
+describe("blokken van de trainer", () => {
+  // Blok 1: maandag 2 november 2026, 2 weken (t.e.m. zondag 15 november).
+  const blocks = [{ number: 1, start_date: "2026-11-02", weeks: 2 }];
+
+  it("plaatst een datum in blok en week, met de maandag van die week", async () => {
+    const { placeInBlock } = await import("@/lib/blocks");
+    expect(placeInBlock("2026-11-02", blocks)).toEqual({ block: 1, week: 1, monday: "2026-11-02" });
+    expect(placeInBlock("2026-11-15", blocks)).toEqual({ block: 1, week: 2, monday: "2026-11-09" });
+    expect(placeInBlock("2026-11-16", blocks)).toBeNull();
+    expect(placeInBlock("2026-11-01", blocks)).toBeNull();
+  });
+
+  it("groepeert per blokweek; trainingen buiten een blok volgen de maand", async () => {
+    const { groupByBlockWeek } = await import("@/lib/blocks");
+    const weeks = groupByBlockWeek(
+      [
+        { date: "2026-11-11", status: "completed" as const, title: "Week 2 · Sessie 1", sheetTab: "NOV2026" },
+        { date: "2026-11-03", status: "completed" as const, title: "Week 1 · Sessie 1", sheetTab: "NOV2026" },
+        { date: "2026-10-27", status: "completed" as const, title: "Vrije training", sheetTab: null },
+      ],
+      blocks,
+    );
+    expect(weeks.map((w) => [w.block, w.week, w.monday])).toEqual([
+      [1, 2, "2026-11-09"],
+      [1, 1, "2026-11-02"],
+      [null, 4, "2026-10-26"], // oktober, week 4
+    ]);
+  });
+
+  it("toont de dagen van een week", async () => {
+    const { formatWeekRange } = await import("@/lib/blocks");
+    expect(formatWeekRange("2026-11-02")).toBe("2 – 8 nov");
+    expect(formatWeekRange("2026-11-30")).toBe("30 nov – 6 dec");
+  });
+});
+
 describe("upcomingProgramDays", () => {
   const day = (id: string, weekday: number | null) => ({ id, name: id, position: 0, weekday, program_exercises: [] });
 

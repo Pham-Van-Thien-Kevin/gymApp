@@ -2,8 +2,8 @@
 // dezelfde componenten als de gebruikersapp; RLS zorgt dat de trainer enkel
 // data van eigen cliënten krijgt.
 import Link from "next/link";
-import { getActiveAssignment, getBodyMetrics, getCheckins, getCurrentBlockTab, getImportBatches, getPlannedWorkouts, getProgramLoads, getStrengthTests, getWorkouts, numericBlock } from "@/lib/data";
-import { formatLongDate, todayISO } from "@/lib/dates";
+import { getActiveAssignment, getBodyMetrics, getCheckins, getCurrentBlockTab, getImportBatches, getPlannedWorkouts, getProgramLoads, getStrengthTests, getTrainingBlocks, getWorkouts, numericBlock } from "@/lib/data";
+import { addDays, formatDate, formatLongDate, startOfWeek, todayISO } from "@/lib/dates";
 import { clientFlags } from "@/lib/flags";
 import { upcomingProgramDays } from "@/lib/program";
 import { isUuid } from "@/lib/parse";
@@ -23,10 +23,11 @@ import { UpcomingList } from "@/components/upcoming-list";
 import { BodyWeightPanel } from "@/components/progress/body-weight-panel";
 import { ProgressPanel } from "@/components/progress/progress-panel";
 import { StrengthTable } from "@/components/progress/strength-table";
-import { assignProgram } from "../../actions";
+import { assignProgram, createBlock, deleteBlock } from "../../actions";
 
 const sections = [
   { id: "schema", label: "Schema" },
+  { id: "blokken", label: "Blokken" },
   { id: "komend", label: "Komend" },
   { id: "historiek", label: "Historiek" },
   { id: "progressie", label: "Progressie" },
@@ -44,7 +45,7 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/t
   const flags = clientFlags(client, today);
 
   const supabase = await createClient();
-  const [assignment, workouts, planned, tests, metrics, checkins, imports, programs, currentBlock] = await Promise.all([
+  const [assignment, workouts, planned, tests, metrics, checkins, imports, programs, currentBlock, blocks] = await Promise.all([
     getActiveAssignment(id),
     // Tot en met vandaag; de toekomst staat apart onder "Komende trainingen".
     // ±7 blokweken van 4 sessies: per week opgedeeld blijft dat overzichtelijk.
@@ -56,6 +57,7 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/t
     getImportBatches(id),
     supabase.from("programs").select("id, name").eq("trainer_id", trainer.id).order("name"),
     getCurrentBlockTab(id),
+    getTrainingBlocks(id),
   ]);
   // Voorgestelde gewichten op basis van de geschatte 1RM's van deze cliënt
   // (RLS laat de trainer de sets van eigen cliënten lezen).
@@ -67,6 +69,12 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/t
   const upcomingSchema = assignment
     ? upcomingProgramDays(assignment.program.program_days, numericBlock(assignment.program), assignment.start_date, today)
     : [];
+
+  // Voorstel voor het volgende blok: het nummer na het laatste, vanaf de maandag
+  // na het laatste blok (of deze week als er nog geen blok is).
+  const lastBlock = blocks.at(-1);
+  const nextNumber = Math.max(0, ...blocks.map((block) => block.number)) + 1;
+  const nextStart = lastBlock ? addDays(lastBlock.start_date, lastBlock.weeks * 7) : startOfWeek(today);
 
   return (
     <>
@@ -149,12 +157,51 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/t
           </Card>
         </Section>
 
+        <Section id="blokken" title="Blokken" className="scroll-mt-16 xl:col-span-2">
+          {blocks.length > 0 ? (
+            <ul className="mb-4 divide-y divide-chalk/15 border-y border-chalk/15">
+              {blocks.map((block) => (
+                <li key={block.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                  <div>
+                    <p className="font-semibold">Blok {block.number}</p>
+                    <p className="text-sm text-chalk/60">
+                      {/* Laatste dag = zondag van de laatste week. */}
+                      {formatDate(block.start_date, { day: "numeric", month: "short", year: "numeric" })} –{" "}
+                      {formatDate(addDays(block.start_date, block.weeks * 7 - 1), { day: "numeric", month: "short", year: "numeric" })} ·{" "}
+                      {block.weeks} {block.weeks === 1 ? "week" : "weken"}
+                    </p>
+                  </div>
+                  <ActionForm action={deleteBlock.bind(null, id, block.id)} confirm={`Blok ${block.number} verwijderen? De trainingen zelf blijven staan.`}>
+                    <SubmitButton variant="secondary" size="sm">
+                      Verwijderen
+                    </SubmitButton>
+                  </ActionForm>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mb-4 text-chalk/70">Nog geen blokken. De historiek toont nu per maand; met blokken zie je &quot;Blok 1 · Week 2&quot;.</p>
+          )}
+          <Card>
+            <h3 className="mb-3 font-semibold">Nieuw blok</h3>
+            {/* key: na het aanmaken schuiven de voorgestelde waarden op naar het volgende blok. */}
+            <ActionForm key={`${nextNumber}-${nextStart}`} action={createBlock.bind(null, id)}>
+              <div className="grid gap-3 sm:grid-cols-[6rem_1fr_6rem_auto] sm:items-end">
+                <Field label="Blok" name="number" type="number" inputMode="numeric" min={1} max={99} required defaultValue={nextNumber} />
+                <Field label="Start (maandag)" name="start_date" type="date" required defaultValue={nextStart} />
+                <Field label="Weken" name="weeks" type="number" inputMode="numeric" min={1} max={16} required defaultValue={4} />
+                <SubmitButton>Blok aanmaken</SubmitButton>
+              </div>
+            </ActionForm>
+          </Card>
+        </Section>
+
         <Section id="komend" title="Komende trainingen" className="scroll-mt-16 xl:col-span-2">
-          <UpcomingList planned={upcomingSheet} programDays={upcomingSchema} hrefBase={`/trainer/clients/${id}/workouts`} />
+          <UpcomingList planned={upcomingSheet} programDays={upcomingSchema} hrefBase={`/trainer/clients/${id}/workouts`} blocks={blocks} />
         </Section>
 
         <Section id="historiek" title="Historiek" className="scroll-mt-16">
-          <WorkoutList workouts={workouts.items} hrefBase={`/trainer/clients/${id}/workouts`} emptyText="Nog geen trainingen." currentBlock={currentBlock} byWeek />
+          <WorkoutList workouts={workouts.items} hrefBase={`/trainer/clients/${id}/workouts`} emptyText="Nog geen trainingen." currentBlock={currentBlock} blocks={blocks} byWeek />
           {workouts.total > workouts.items.length && (
             <p className="mt-3 text-sm text-chalk/60">Laatste {workouts.items.length} van {workouts.total} trainingen.</p>
           )}

@@ -5,25 +5,30 @@ import { formatDate } from "@/lib/dates";
 import { BAR_WEIGHT, MAX_TABLE_REPS, RPE_TABLE, platesPerSide } from "@/lib/rpe";
 import { formatLoad, formatNumber } from "@/lib/stats";
 
-export type Suggestion = {
-  weight: number;
-  reps: number;
-  rpe: number;
-  reference: { e1rm: number; date: string };
-};
+/** Een voorgesteld gewicht: van je coach, of berekend door de app uit je geschat 1RM. */
+export type Suggestion =
+  | { source: "coach"; weight: number }
+  | { source: "app"; weight: number; reps: number; rpe: number; reference: { e1rm: number; date: string } };
 
-/** "Voorstel 85 kg voor 5 @ RPE 7 · je geschat 1RM: 107 kg (19 okt)" + knop om in te vullen. */
+/**
+ * "Voorstel 85 kg voor 5 @ RPE 7 · je geschat 1RM: 107 kg (19 okt)" of
+ * "Je coach stelt 85 kg voor", met een knop om in te vullen.
+ */
 export function SuggestionLine({ suggestion, exerciseName, onFill }: { suggestion: Suggestion; exerciseName: string; onFill: () => void }) {
   return (
     <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
       <p className="text-sm">
-        <span className="text-chalk/60">Voorstel </span>
+        <span className="text-chalk/60">{suggestion.source === "coach" ? "Je coach stelt " : "Voorstel "}</span>
         <span className="font-bold tabular-nums">{formatNumber(suggestion.weight, 2)} kg</span>
-        <span className="text-chalk/60">
-          {" "}
-          voor {suggestion.reps} @ RPE {formatNumber(suggestion.rpe)} · je geschat 1RM: {formatLoad(suggestion.reference.e1rm)} (
-          {formatDate(suggestion.reference.date)})
-        </span>
+        {suggestion.source === "coach" ? (
+          <span className="text-chalk/60"> voor</span>
+        ) : (
+          <span className="text-chalk/60">
+            {" "}
+            voor {suggestion.reps} @ RPE {formatNumber(suggestion.rpe)} · je geschat 1RM: {formatLoad(suggestion.reference.e1rm)} (
+            {formatDate(suggestion.reference.date)})
+          </span>
+        )}
       </p>
       <button
         type="button"

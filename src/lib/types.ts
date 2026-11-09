@@ -87,6 +87,8 @@ export type WorkoutExerciseDetail = {
   optional: boolean;
   performed: boolean;
   raw: Record<string, unknown> | null;
+  /** Voorgesteld gewicht van de coach (kg) voor een geplande oefening. */
+  coach_weight: number | null;
   exercise: { id: string; name: string } | null;
   workout_sets: WorkoutSet[];
 };
@@ -189,4 +191,12 @@ export type AppNotification = {
   link: string | null;
   read_at: string | null;
   created_at: string;
+};
+
+/** Een blok van een cliënt: "Blok 1" vanaf een maandag, een aantal weken lang. */
+export type TrainingBlock = {
+  id: string;
+  number: number;
+  start_date: string;
+  weeks: number;
 };

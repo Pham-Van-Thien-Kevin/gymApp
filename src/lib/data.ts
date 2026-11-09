@@ -23,6 +23,7 @@ import type {
   ProgramExercise,
   SetLogRow,
   StrengthTest,
+  TrainingBlock,
   WorkoutDetail,
   WorkoutListItem,
   WorkoutStatus,
@@ -223,7 +224,7 @@ export async function getWorkoutDetail(workoutId: string): Promise<WorkoutDetail
     .from("workouts")
     .select(
       `id, member_id, date, title, status, duration_minutes, notes,
-       workout_exercises ( id, position, target_sets, target_reps, target_intensity, actual_rpe, notes, optional, performed, raw,
+       workout_exercises ( id, position, target_sets, target_reps, target_intensity, actual_rpe, notes, optional, performed, raw, coach_weight,
          exercise:exercises ( id, name ),
          workout_sets ( id, set_number, reps, weight, rpe, reps_estimated ) ),
        cardio_entries ( id, type, duration_minutes ),
@@ -398,6 +399,18 @@ export async function getBodyMetrics(memberId: string): Promise<BodyMetric[]> {
     .eq("member_id", memberId)
     .order("date");
   if (error) fail("Lichaamsgewicht laden", error);
+  return data;
+}
+
+/** De blokken van een cliënt ("Blok 1", "Blok 2"…), oudste eerst. */
+export async function getTrainingBlocks(memberId: string): Promise<TrainingBlock[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("training_blocks")
+    .select("id, number, start_date, weeks")
+    .eq("member_id", memberId)
+    .order("start_date");
+  if (error) fail("Blokken laden", error);
   return data;
 }
 

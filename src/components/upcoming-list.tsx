@@ -3,6 +3,7 @@
 // van het toegewezen schema (uitgerekend op hun weekdag).
 import Link from "next/link";
 import { Badge, EmptyState } from "@/components/ui/layout";
+import { placeInBlock, type BlockRange } from "@/lib/blocks";
 import { formatDate, relativeDays } from "@/lib/dates";
 import { formatRpeTarget, type UpcomingProgramDay } from "@/lib/program";
 import type { WorkoutListItem } from "@/lib/types";
@@ -15,10 +16,13 @@ export function UpcomingList({
   planned,
   programDays,
   hrefBase,
+  blocks = [],
 }: {
   planned: WorkoutListItem[];
   programDays: UpcomingProgramDay[];
   hrefBase: string;
+  /** Blokken van de trainer: bij elke training staat in welk blok en welke week ze valt. */
+  blocks?: BlockRange[];
 }) {
   const rows: Row[] = [
     ...planned.map((workout) => ({
@@ -52,6 +56,7 @@ export function UpcomingList({
             <div className="min-w-0 flex-1">
               <p className="truncate font-semibold group-hover:underline">{row.title}</p>
               <p className="text-sm text-chalk/60">
+                {blockLabel(row.date, blocks)}
                 {row.detail} · {relativeDays(row.date)}
               </p>
             </div>
@@ -76,4 +81,10 @@ export function UpcomingList({
       })}
     </ul>
   );
+}
+
+/** "Blok 2 · Week 1 · " als de datum in een blok valt, anders niets. */
+function blockLabel(date: string, blocks: BlockRange[]) {
+  const place = placeInBlock(date, blocks);
+  return place ? `Blok ${place.block} · Week ${place.week} · ` : "";
 }

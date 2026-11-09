@@ -4,8 +4,8 @@
 // Daarna beschermt RLS nog eens dat het om een eigen cliënt gaat.
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth";
-import { isValidISODate, todayISO } from "@/lib/dates";
-import { isUuid, text } from "@/lib/parse";
+import { addDays, isValidISODate, startOfWeek, todayISO } from "@/lib/dates";
+import { inRange, isUuid, parseDecimal, parseInteger, text } from "@/lib/parse";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionState } from "@/components/ui/form";
 
@@ -78,4 +78,78 @@ export async function moveWorkout(workoutId: string, _prev: ActionState, formDat
   revalidatePath("/trainer", "layout");
   revalidatePath("/app", "layout");
   return { success: "Datum aangepast." };
+}
+
+/** Een blok aanmaken voor een cliënt: "Blok 2" vanaf een maandag, een aantal weken lang. */
+export async function createBlock(memberId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  await requireRole("trainer");
+  const number = parseInteger(formData.get("number"));
+  const weeks = parseInteger(formData.get("weeks"));
+  const date = String(formData.get("start_date") ?? "");
+  if (!isUuid(memberId)) return { error: "Onbekende cliënt." };
+  if (!inRange(number, 1, 99)) return { error: "Kies een bloknummer van 1 tot 99." };
+  if (!inRange(weeks, 1, 16)) return { error: "Een blok duurt 1 tot 16 weken." };
+  if (!isValidISODate(date)) return { error: "Kies een geldige startdatum." };
+  // Een blokweek loopt van maandag tot zondag: kies je een woensdag, dan start het blok op die maandag.
+  const start = startOfWeek(date);
+
+  const supabase = await createClient();
+  const { data: existing, error: loadError } = await supabase.from("training_blocks").select("number, start_date, weeks").eq("member_id", memberId);
+  if (loadError) return { error: `Blokken laden lukte niet: ${loadError.message}` };
+  // Twee blokken mogen niet overlappen, anders weet de app niet bij welk blok een training hoort.
+  const end = addDays(start, weeks * 7);
+  const overlap = existing.find((block) => start < addDays(block.start_date, block.weeks * 7) && block.start_date < end);
+  if (overlap) return { error: `Dit blok overlapt met Blok ${overlap.number}. Kies een latere startdatum of minder weken.` };
+
+  // RLS ("training_blocks: trainer schrijft") weigert als dit niet je eigen cliënt is.
+  const { error } = await supabase.from("training_blocks").insert({ member_id: memberId, number, start_date: start, weeks });
+  if (error) {
+    // 23505 = unique_violation: dit bloknummer bestaat al bij deze cliënt.
+    if (error.code === "23505") return { error: `Blok ${number} bestaat al. Kies een ander nummer.` };
+    return { error: `Opslaan lukte niet: ${error.message}` };
+  }
+
+  revalidatePath(`/trainer/clients/${memberId}`);
+  return { success: `Blok ${number} aangemaakt (${weeks} ${weeks === 1 ? "week" : "weken"}).` };
+}
+
+// Past ook in een ActionForm: een functie met minder parameters mag je doorgeven waar er meer verwacht worden.
+export async function deleteBlock(memberId: string, blockId: string): Promise<ActionState> {
+  await requireRole("trainer");
+  if (!isUuid(memberId) || !isUuid(blockId)) return { error: "Onbekend blok." };
+  const supabase = await createClient();
+  // Enkel het blok verdwijnt; de trainingen blijven en tonen weer hun maand.
+  const { error } = await supabase.from("training_blocks").delete().eq("id", blockId).eq("member_id", memberId);
+  if (error) return { error: `Verwijderen lukte niet: ${error.message}` };
+  revalidatePath(`/trainer/clients/${memberId}`);
+  return { success: "Blok verwijderd." };
+}
+
+/**
+ * Voorgestelde gewichten van de coach voor een geplande sessie. Het formulier
+ * heeft per oefening een veld "weight-<workout_exercise_id>"; leeg = geen
+ * gewicht van de coach (de app rekent dan zelf een voorstel uit).
+ */
+export async function setCoachWeights(workoutId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  await requireRole("trainer");
+  if (!isUuid(workoutId)) return { error: "Onbekende training." };
+
+  const weights: Record<string, number | null> = {};
+  for (const [name, value] of formData.entries()) {
+    const id = name.startsWith("weight-") ? name.slice("weight-".length) : null;
+    if (!isUuid(id)) continue;
+    const raw = String(value).trim();
+    const weight = parseDecimal(raw);
+    if (raw && !inRange(weight, 0, 999)) return { error: `"${raw}" is geen geldig gewicht. Typ bv. 82,5.` };
+    weights[id] = raw ? weight : null;
+  }
+
+  const supabase = await createClient();
+  // set_coach_weights controleert dat het een geplande sessie van een eigen cliënt is.
+  const { error } = await supabase.rpc("set_coach_weights", { p_workout_id: workoutId, p_weights: weights });
+  if (error) return { error: error.message };
+
+  revalidatePath("/trainer", "layout");
+  revalidatePath("/app", "layout");
+  return { success: "Gewichten opgeslagen. Je cliënt ziet ze in de logger." };
 }
