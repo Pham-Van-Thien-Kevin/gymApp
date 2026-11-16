@@ -47,3 +47,16 @@ export function bigThreeLift(name: string): BigThreeLift | null {
   const normalized = name.trim().toLowerCase().replace(/\s+/g, " ");
   return BIG_THREE.find((lift) => BIG_THREE_NAMES[lift].includes(normalized)) ?? null;
 }
+
+// Blokopbouw (RPE die elke week stijgt): de wedstrijdlifts én hun varianten. Een
+// variant is een oefening met een herkenbaar kenmerk ("paused", "close grip",
+// "tempo", "larsen", …) die ook een squat, bench, deadlift of press is. Zo volgen
+// "Paused bench press" en "Larsen press" mee, maar "Romanian deadlifts", "Belt
+// squat" of "Leg press" niet: dat zijn accessoires met hun eigen RPE van de coach.
+const VARIANT_MARKERS = /\b(paused?|tempo|close grip|wide grip|larsen|spoto|pin|deficit)\b/i;
+const VARIANT_BASES = /\b(squat|bench|deadlift|press)\b/i;
+
+/** Volgt deze oefening de stijgende RPE van een blok? Wedstrijdlift of variant ervan. */
+export function followsBlockRpe(name: string): boolean {
+  return bigThreeLift(name) !== null || (VARIANT_MARKERS.test(name) && VARIANT_BASES.test(name));
+}

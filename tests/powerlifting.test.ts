@@ -158,7 +158,7 @@ describe("blokopbouw", () => {
     expect(currentBlock(block, "2026-10-07", "2026-11-02")).toMatchObject({ week: 4, rpe: 9, finished: true });
   });
 
-  it("verhoogt enkel squat, bench en deadlift; de rest houdt de RPE van de coach", async () => {
+  it("verhoogt squat, bench, deadlift en hun varianten; accessoires houden de RPE van de coach", async () => {
     const { withBlockRpe } = await import("@/lib/program");
     const pe = (id: string, name: string, rpe: string) => ({
       id, position: 0, target_sets: 3, target_reps: "5", target_rpe: rpe, notes: null, optional: false,
@@ -166,11 +166,19 @@ describe("blokopbouw", () => {
     });
     const day = {
       id: "d", name: "Dag 1", position: 0, weekday: 0,
-      program_exercises: [pe("a", "Squat", "6"), pe("b", "Comp bench", "6"), pe("c", "Deadlift", "6"), pe("d", "Paused bench press", "6"), pe("e", "Leg extension", "7")],
+      program_exercises: [
+        pe("a", "Squat", "6"),
+        pe("b", "Comp bench", "6"),
+        pe("c", "Deadlift", "6"),
+        pe("d", "Paused bench press", "6"),
+        pe("e", "Larsen press", "6"),
+        pe("f", "Leg extension", "7"),
+        pe("g", "Romanian deadlifts", "6"),
+      ],
     };
     const rpes = withBlockRpe([day], { week: 2, weeks: 4, rpe: 7.5, finished: false })[0].program_exercises.map((x) => x.target_rpe);
-    expect(rpes).toEqual(["7,5", "7,5", "7,5", "6", "7"]);
-    expect(withBlockRpe([day], null)[0].program_exercises.map((x) => x.target_rpe)).toEqual(["6", "6", "6", "6", "7"]);
+    expect(rpes).toEqual(["7,5", "7,5", "7,5", "7,5", "7,5", "7", "6"]);
+    expect(withBlockRpe([day], null)[0].program_exercises.map((x) => x.target_rpe)).toEqual(["6", "6", "6", "6", "6", "7", "6"]);
   });
 
   it("de coach zet 'deze week is week 2': vorige week was week 1 (RPE 6), deze week RPE 7", async () => {
@@ -184,5 +192,15 @@ describe("blokopbouw", () => {
     expect(currentBlock(block, start, "2026-11-12")).toMatchObject({ week: 1, rpe: 6 }); // vorige week
     expect(currentBlock(block, startDateForBlockWeek(1, today), today)).toMatchObject({ week: 1, rpe: 6 });
     expect(currentBlock(block, startDateForBlockWeek(4, today), today)).toMatchObject({ week: 4, rpe: 9 });
+  });
+
+  it("herkent varianten van de wedstrijdlifts, maar geen accessoires", async () => {
+    const { followsBlockRpe } = await import("@/lib/exercises");
+    for (const name of ["Squat", "Comp bench", "Deadlift", "Paused bench press", "Larsen press", "Close grip bench", "Tempo bench 3-2-0", "Pause squat", "Deficit deadlift", "Spoto press", "Wide grip bench"]) {
+      expect(followsBlockRpe(name), name).toBe(true);
+    }
+    for (const name of ["Romanian deadlifts", "Beltsquat", "Belt squat (hack squat)", "Leg press", "Legpress", "Chest press", "Incline chest press", "Seated cable chest press", "Hip trust", "Leg extension", "DB press", "Pull ups(weighted)"]) {
+      expect(followsBlockRpe(name), name).toBe(false);
+    }
   });
 });

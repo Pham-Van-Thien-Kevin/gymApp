@@ -38,7 +38,7 @@ export function BlockEditor({ programId, settings }: { programId: string; settin
           <input type="checkbox" name="enabled" checked={on} onChange={(event) => setOn(event.target.checked)} className="mt-1 size-5 accent-accent" />
           <span>
             <span className="font-semibold">Automatisch blok</span>
-            <span className="block text-sm text-chalk/60">Elke week gaat de RPE van squat, bench en deadlift omhoog. De andere oefeningen houden de RPE die je hieronder invult.</span>
+            <span className="block text-sm text-chalk/60">Elke week gaat de RPE van squat, bench en deadlift en hun varianten (paused, close grip, tempo, Larsen) omhoog. Accessoires houden de RPE die je hieronder invult.</span>
           </span>
         </label>
         {/* fieldset disabled: grijs en niet in te vullen zolang het vinkje uit staat. */}

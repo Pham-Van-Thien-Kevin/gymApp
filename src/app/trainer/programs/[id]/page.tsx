@@ -79,7 +79,7 @@ export default async function ProgramEditor({ params }: PageProps<"/trainer/prog
           <Section title="Dagen">
             {program.block_weeks !== null && (
               <p className="-mt-2 mb-4 rounded-lg border border-accent px-3 py-2 text-sm">
-                Blokopbouw staat aan: voor squat, bench en deadlift wordt de RPE hieronder elke week vervangen door die van de blokweek. De andere oefeningen houden hun RPE.
+                Blokopbouw staat aan: voor squat, bench, deadlift en hun varianten (paused, close grip, tempo, Larsen) wordt de RPE hieronder elke week vervangen door die van de blokweek. Accessoires houden hun RPE.
               </p>
             )}
             <ol className="flex flex-col gap-6">
@@ -129,7 +129,7 @@ export default async function ProgramEditor({ params }: PageProps<"/trainer/prog
                       {!block && <p className="mt-1 text-chalk/60">Zet Blokopbouw aan (hierboven) om de blokweken te tellen.</p>}
                       {block && (
                         <p className="mt-1">
-                          {block.finished ? "Blok voltooid" : `Nu: week ${block.week} van ${block.weeks}, RPE ${formatRpeTarget(block.rpe)} voor squat, bench en deadlift`}
+                          {block.finished ? "Blok voltooid" : `Nu: week ${block.week} van ${block.weeks}, RPE ${formatRpeTarget(block.rpe)} voor squat, bench, deadlift en varianten`}
                         </p>
                       )}
                       {/* Blokweek aanpassen: "deze week is week 2" i.p.v. een datum uitrekenen. */}
