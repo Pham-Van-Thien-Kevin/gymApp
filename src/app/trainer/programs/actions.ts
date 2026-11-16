@@ -5,6 +5,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
+import { todayISO } from "@/lib/dates";
+import { startDateForBlockWeek } from "@/lib/program";
 import { inRange, isUuid, parseDecimal, parseInteger, text } from "@/lib/parse";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionState } from "@/components/ui/form";
@@ -93,6 +95,33 @@ export async function updateBlock(programId: string, _prev: ActionState, formDat
   if (error) return { error: error.message };
   refresh(programId);
   return { success: values.block_weeks ? "Blokopbouw opgeslagen." : "Blokopbouw uitgezet: de RPE per oefening geldt weer." };
+}
+
+/**
+ * De coach zet de blokweek van een cliënt: "deze week is week 2". We bewaren dat
+ * als nieuwe startdatum van de toewijzing (de maandag van week 1). Enkel bij een
+ * actieve toewijzing van dit schema, en RLS laat enkel eigen cliënten toe.
+ */
+export async function setBlockWeek(programId: string, assignmentId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  await requireRole("trainer");
+  if (!isUuid(programId) || !isUuid(assignmentId)) return { error: "Onbekende toewijzing." };
+  const week = parseInteger(formData.get("block_week"));
+  if (!inRange(week, 1, 12)) return { error: "Een blokweek ligt tussen 1 en 12." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("program_assignments")
+    .update({ start_date: startDateForBlockWeek(week, todayISO()) })
+    .eq("id", assignmentId)
+    .eq("program_id", programId)
+    .eq("active", true)
+    .select("member_id");
+  if (error) return { error: error.message };
+  if (!data?.length) return { error: "Deze toewijzing bestaat niet (meer) of is niet actief." };
+
+  refresh(programId);
+  revalidatePath(`/trainer/clients/${data[0].member_id}`);
+  return { success: `Opgeslagen: deze week is blokweek ${week}.` };
 }
 
 export async function deleteProgram(programId: string): Promise<ActionState> {

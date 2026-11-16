@@ -70,6 +70,15 @@ export function currentBlock(settings: BlockSettings, startDate: string, today: 
   return { week: Math.min(Math.max(week, 1), settings.block_weeks), weeks: settings.block_weeks, rpe, finished: week > settings.block_weeks };
 }
 
+/**
+ * Startdatum voor een toewijzing zodat het DEZE week blokweek `week` is: de
+ * maandag van deze week min (week − 1) weken. Zo kan de coach zeggen "deze week
+ * is week 2" in plaats van een datum uit te rekenen.
+ */
+export function startDateForBlockWeek(week: number, today: string): string {
+  return addDays(startOfWeek(today), -7 * (week - 1));
+}
+
 /** "7" of "7,5": zelfde notatie als een ingetypt RPE-doel. */
 export const formatRpeTarget = (rpe: number) => String(rpe).replace(".", ",");
 

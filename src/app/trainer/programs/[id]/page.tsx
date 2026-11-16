@@ -8,7 +8,7 @@ import { requireRole } from "@/lib/auth";
 import { getExercises, getMemberActivity, sortProgramDays } from "@/lib/data";
 import { WEEKDAYS, formatLongDate, todayISO } from "@/lib/dates";
 import { isUuid } from "@/lib/parse";
-import { formatTarget } from "@/lib/program";
+import { currentBlock, formatRpeTarget, formatTarget } from "@/lib/program";
 import { createClient } from "@/lib/supabase/server";
 import type { Exercise, ProgramDay, ProgramExercise } from "@/lib/types";
 import { groupByCategory, uniqueByName } from "@/lib/exercises";
@@ -25,6 +25,7 @@ import {
   deleteProgram,
   deleteProgramExercise,
   move,
+  setBlockWeek,
   updateDay,
   updateProgram,
   updateProgramExercise,
@@ -56,6 +57,12 @@ export default async function ProgramEditor({ params }: PageProps<"/trainer/prog
 
   const days = sortProgramDays(program.program_days as unknown as ProgramDay[]);
   const myClients = clients.filter((client) => client.trainer_id === trainer.id);
+  // Blokinstelling van dit schema, om per cliënt te tonen in welke blokweek hij zit.
+  const blockSettings = {
+    block_weeks: program.block_weeks === null ? null : Number(program.block_weeks),
+    rpe_start: program.rpe_start === null ? null : Number(program.rpe_start),
+    rpe_end: program.rpe_end === null ? null : Number(program.rpe_end),
+  };
   const activeAssignments = (program.program_assignments as { id: string; member_id: string; start_date: string; active: boolean }[]).filter(
     (assignment) => assignment.active,
   );
@@ -109,14 +116,40 @@ export default async function ProgramEditor({ params }: PageProps<"/trainer/prog
           <Section title="Toewijzen">
             {activeAssignments.length > 0 && (
               <ul className="mb-4 divide-y divide-chalk/10 border-y border-chalk/10 text-sm">
-                {activeAssignments.map((assignment) => (
-                  <li key={assignment.id} className="flex justify-between gap-2 py-2">
-                    <Link href={`/trainer/clients/${assignment.member_id}`} className="font-semibold hover:underline">
-                      {myClients.find((client) => client.member_id === assignment.member_id)?.full_name ?? "Cliënt"}
-                    </Link>
-                    <span className="text-chalk/60">sinds {formatLongDate(assignment.start_date)}</span>
-                  </li>
-                ))}
+                {activeAssignments.map((assignment) => {
+                  const block = currentBlock(blockSettings, assignment.start_date, todayISO());
+                  return (
+                    <li key={assignment.id} className="py-3">
+                      <div className="flex justify-between gap-2">
+                        <Link href={`/trainer/clients/${assignment.member_id}`} className="font-semibold hover:underline">
+                          {myClients.find((client) => client.member_id === assignment.member_id)?.full_name ?? "Cliënt"}
+                        </Link>
+                        <span className="text-chalk/60">sinds {formatLongDate(assignment.start_date)}</span>
+                      </div>
+                      {!block && <p className="mt-1 text-chalk/60">Zet Blokopbouw aan (hierboven) om de blokweken te tellen.</p>}
+                      {block && (
+                        <p className="mt-1">
+                          {block.finished ? "Blok voltooid" : `Nu: week ${block.week} van ${block.weeks}, RPE ${formatRpeTarget(block.rpe)} voor squat, bench en deadlift`}
+                        </p>
+                      )}
+                      {/* Blokweek aanpassen: "deze week is week 2" i.p.v. een datum uitrekenen. */}
+                      <ActionForm action={setBlockWeek.bind(null, id, assignment.id)}>
+                        <div className="mt-2 grid grid-cols-[1fr_auto] items-end gap-2">
+                          <Field
+                            label="Deze week is blokweek"
+                            name="block_week"
+                            type="number"
+                            min={1}
+                            max={12}
+                            required
+                            defaultValue={block?.week ?? 1}
+                          />
+                          <SubmitButton variant="secondary" size="sm">Zet</SubmitButton>
+                        </div>
+                      </ActionForm>
+                    </li>
+                  );
+                })}
               </ul>
             )}
             {myClients.length === 0 ? (

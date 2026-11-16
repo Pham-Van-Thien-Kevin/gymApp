@@ -172,4 +172,17 @@ describe("blokopbouw", () => {
     expect(rpes).toEqual(["7,5", "7,5", "7,5", "6", "7"]);
     expect(withBlockRpe([day], null)[0].program_exercises.map((x) => x.target_rpe)).toEqual(["6", "6", "6", "6", "7"]);
   });
+
+  it("de coach zet 'deze week is week 2': vorige week was week 1 (RPE 6), deze week RPE 7", async () => {
+    const { currentBlock, startDateForBlockWeek } = await import("@/lib/program");
+    const block = { block_weeks: 4, rpe_start: 6, rpe_end: 9 };
+    // Woensdag 18 november 2026: de week loopt van maandag 16 tot zondag 22.
+    const today = "2026-11-18";
+    const start = startDateForBlockWeek(2, today);
+    expect(start).toBe("2026-11-09"); // maandag van vorige week = week 1
+    expect(currentBlock(block, start, today)).toMatchObject({ week: 2, rpe: 7, finished: false });
+    expect(currentBlock(block, start, "2026-11-12")).toMatchObject({ week: 1, rpe: 6 }); // vorige week
+    expect(currentBlock(block, startDateForBlockWeek(1, today), today)).toMatchObject({ week: 1, rpe: 6 });
+    expect(currentBlock(block, startDateForBlockWeek(4, today), today)).toMatchObject({ week: 4, rpe: 9 });
+  });
 });
