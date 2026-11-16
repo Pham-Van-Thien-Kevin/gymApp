@@ -158,10 +158,18 @@ describe("blokopbouw", () => {
     expect(currentBlock(block, "2026-10-07", "2026-11-02")).toMatchObject({ week: 4, rpe: 9, finished: true });
   });
 
-  it("vervangt de RPE van alle oefeningen", async () => {
+  it("verhoogt enkel squat, bench en deadlift; de rest houdt de RPE van de coach", async () => {
     const { withBlockRpe } = await import("@/lib/program");
-    const day = { id: "d", name: "Dag 1", position: 0, weekday: 0, program_exercises: [{ id: "p", position: 0, target_sets: 3, target_reps: "5", target_rpe: "8", notes: null, optional: false, exercise: null }] };
-    expect(withBlockRpe([day], { week: 2, weeks: 4, rpe: 7.5, finished: false })[0].program_exercises[0].target_rpe).toBe("7,5");
-    expect(withBlockRpe([day], null)[0].program_exercises[0].target_rpe).toBe("8");
+    const pe = (id: string, name: string, rpe: string) => ({
+      id, position: 0, target_sets: 3, target_reps: "5", target_rpe: rpe, notes: null, optional: false,
+      exercise: { id, name, category: "Andere", equipment: null },
+    });
+    const day = {
+      id: "d", name: "Dag 1", position: 0, weekday: 0,
+      program_exercises: [pe("a", "Squat", "6"), pe("b", "Comp bench", "6"), pe("c", "Deadlift", "6"), pe("d", "Paused bench press", "6"), pe("e", "Leg extension", "7")],
+    };
+    const rpes = withBlockRpe([day], { week: 2, weeks: 4, rpe: 7.5, finished: false })[0].program_exercises.map((x) => x.target_rpe);
+    expect(rpes).toEqual(["7,5", "7,5", "7,5", "6", "7"]);
+    expect(withBlockRpe([day], null)[0].program_exercises.map((x) => x.target_rpe)).toEqual(["6", "6", "6", "6", "7"]);
   });
 });

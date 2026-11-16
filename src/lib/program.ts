@@ -1,4 +1,5 @@
 import { WEEKDAYS, addDays, daysBetween, startOfWeek, weekdayIndex } from "@/lib/dates";
+import { bigThreeLift } from "@/lib/exercises";
 import type { ProgramDay, ProgramExercise } from "@/lib/types";
 
 export type TodayPlan =
@@ -94,12 +95,16 @@ export function upcomingProgramDays(days: ProgramDay[], settings: BlockSettings,
   return upcoming;
 }
 
-/** De schemadagen met de RPE van deze blokweek in plaats van de vaste RPE. */
+/**
+ * De schemadagen met de RPE van deze blokweek. Enkel voor de wedstrijdlifts
+ * (squat, bench, deadlift): die bouwen op naar een piek. Al de rest (varianten
+ * zoals paused bench, accessoires) houdt de RPE die de coach invulde.
+ */
 export function withBlockRpe(days: ProgramDay[], block: BlockStatus | null): ProgramDay[] {
   if (!block) return days;
   const target = formatRpeTarget(block.rpe);
   return days.map((day) => ({
     ...day,
-    program_exercises: day.program_exercises.map((pe) => ({ ...pe, target_rpe: target })),
+    program_exercises: day.program_exercises.map((pe) => (pe.exercise && bigThreeLift(pe.exercise.name) ? { ...pe, target_rpe: target } : pe)),
   }));
 }

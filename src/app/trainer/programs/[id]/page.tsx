@@ -72,7 +72,7 @@ export default async function ProgramEditor({ params }: PageProps<"/trainer/prog
           <Section title="Dagen">
             {program.block_weeks !== null && (
               <p className="-mt-2 mb-4 rounded-lg border border-accent px-3 py-2 text-sm">
-                Blokopbouw staat aan: de RPE hieronder wordt elke week vervangen door de RPE van die blokweek.
+                Blokopbouw staat aan: voor squat, bench en deadlift wordt de RPE hieronder elke week vervangen door die van de blokweek. De andere oefeningen houden hun RPE.
               </p>
             )}
             <ol className="flex flex-col gap-6">
